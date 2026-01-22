@@ -18,7 +18,7 @@ fn send(title, desc, color) ->
     "body": json(payload)
   })
   
-  case res.status >= 200 and res.status < 300
+  case (res.status >= 200 and res.status < 300)
     true -> println("Succès !") end
     else -> println("Erreur " + res.status + ": " + res.body) end
   end
@@ -27,18 +27,18 @@ end
 a := argv()
 start := 1
 
-case len(a) <= start
+case (len(a) <= start)
   true -> println("Usage: fazer tools/announce.fz \"Titre\" \"Description\" [color]") end
   else ->
     title := a[start]
     desc := ""
-    case len(a) > start + 1
+    case (len(a) > start + 1)
       true -> desc := a[start + 1] end
       else -> end
     end
     
     color := 5763719
-    case len(a) > start + 2
+    case (len(a) > start + 2)
       true -> color := a[start + 2] end
       else -> end
     end

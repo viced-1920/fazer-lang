@@ -1489,6 +1489,163 @@ class FazerRuntime {
          return await http_req(url, opts);
       },
 
+      // OSINT
+      whois: async (domain) => {
+         // Basic native TCP whois
+         return new Promise((resolve) => {
+             const net = require("net");
+             const socket = new net.Socket();
+             let data = "";
+             socket.setTimeout(5000);
+             socket.connect(43, "whois.iana.org", () => {
+                 socket.write(String(domain) + "\r\n");
+             });
+             socket.on('data', (chunk) => data += chunk.toString());
+             socket.on('end', () => {
+                 // Try to follow referral if present (simple one-level redirection)
+                 const match = data.match(/refer:\s*([a-zA-Z0-9.-]+)/i);
+                 if (match && match[1] && match[1] !== "whois.iana.org") {
+                     // Query the referral
+                     const refHost = match[1];
+                     const s2 = new net.Socket();
+                     let d2 = "";
+                     s2.setTimeout(5000);
+                     s2.connect(43, refHost, () => {
+                         s2.write(String(domain) + "\r\n");
+                     });
+                     s2.on('data', (c) => d2 += c.toString());
+                     s2.on('end', () => resolve(d2));
+                     s2.on('error', () => resolve(data)); // Return IANA data if ref fails
+                 } else {
+                     resolve(data);
+                 }
+             });
+             socket.on('error', () => resolve("Error: Connection failed"));
+             socket.on('timeout', () => { socket.destroy(); resolve("Error: Timeout"); });
+         });
+      },
+      geoip: async (ip) => {
+         // Using free IP-API (no key required for limited usage)
+         try {
+             const res = await builtins.http_req("http://ip-api.com/json/" + String(ip));
+             return builtins.json_parse(res.body);
+         } catch(e) { return null; }
+      },
+      html_extract: (html, tag) => {
+         // Simple regex extraction (not a full DOM parser, but useful for lightweight scraping)
+         // Usage: html_extract(source, "title") -> content
+         const t = String(tag);
+         const regex = new RegExp(`<${t}[^>]*>(.*?)</${t}>`, "gis");
+         const matches = [];
+         let m;
+         while ((m = regex.exec(String(html))) !== null) {
+             matches.push(m[1]);
+         }
+         return matches;
+      },
+
+      // System Advanced
+      ps_list: () => {
+         try {
+             if (process.platform === 'win32') {
+                 // CSV format: "Image Name","PID","Session Name","Session#","Mem Usage"
+                 const out = require('child_process').execSync('tasklist /FO CSV /NH').toString();
+                 const lines = out.split('\r\n').filter(l => l.trim() !== "");
+                 return lines.map(l => {
+                     const parts = l.split('","').map(p => p.replace(/"/g, ''));
+                     return { name: parts[0], pid: parts[1], mem: parts[4] };
+                 });
+             } else {
+                 // Linux/Mac ps -A -o comm,pid,rss
+                 const out = require('child_process').execSync('ps -A -o comm,pid,rss').toString();
+                 const lines = out.split('\n').slice(1).filter(l => l.trim() !== "");
+                 return lines.map(l => {
+                     const parts = l.trim().split(/\s+/);
+                     return { name: parts[0], pid: parts[1], mem: parts[2] };
+                 });
+             }
+         } catch(e) { return []; }
+      },
+      kill: (pid) => {
+         try {
+             process.kill(Number(pid));
+             return true;
+         } catch(e) { return false; }
+      },
+      screenshot: async (file) => {
+          if (process.platform === 'win32') {
+              const p = require('path').resolve(String(file));
+              const ps = `
+              Add-Type -AssemblyName System.Windows.Forms
+              Add-Type -AssemblyName System.Drawing
+              $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $b = New-Object System.Drawing.Bitmap $s.Width, $s.Height
+              $g = [System.Drawing.Graphics]::FromImage($b)
+              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
+              $b.Save('${p}', [System.Drawing.Imaging.ImageFormat]::Png)
+              $g.Dispose()
+              $b.Dispose()
+              `;
+              try {
+                  const b64 = Buffer.from(ps, 'utf16le').toString('base64');
+                  require('child_process').execSync(`powershell -EncodedCommand ${b64}`);
+                  return true;
+              } catch(e) { return false; }
+          }
+          return false;
+      },
+
+      // Network Advanced
+      tcp_listen: (port, handler) => {
+          // A simple TCP server (like netcat -l)
+          // Handler receives: (data, socket_id)
+          // Returns server object with .close()
+          const net = require("net");
+          const srv = net.createServer((socket) => {
+              const id = Math.random().toString(36).substr(2, 9);
+              socket.on('data', async (data) => {
+                  if (typeof handler === "object" && handler.__fnref__) {
+                      // Call Fazer function: fn(data_str, id) -> response_str (optional)
+                      const res = await this._call(handler, [data.toString(), id], this.global);
+                      if (res) socket.write(String(res));
+                  }
+              });
+          });
+          srv.listen(Number(port));
+          return {
+              close: () => srv.close(),
+              // We can't easily expose sending to specific socket without more complex state
+              // This is a basic "echo/response" listener
+          };
+      },
+      fuzz_url: async (url, wordlist) => {
+          // wordlist is a list of strings
+          // Returns list of { path, status } for 200/301/403
+          if (!Array.isArray(wordlist)) return [];
+          const results = [];
+          const u = String(url).endsWith('/') ? String(url) : String(url) + '/';
+          
+          // Limit concurrency to 10
+          const chunks = [];
+          const chunkSize = 10;
+          for (let i = 0; i < wordlist.length; i += chunkSize) {
+              chunks.push(wordlist.slice(i, i + chunkSize));
+          }
+
+          for (const chunk of chunks) {
+              await Promise.all(chunk.map(async (word) => {
+                  const target = u + word;
+                  try {
+                      const res = await builtins.http_req(target, { method: "HEAD", timeout: 2000 });
+                      if (res.status !== 404) {
+                          results.push({ path: word, status: res.status });
+                      }
+                  } catch(e) {}
+              }));
+          }
+          return results;
+      },
+
       // Cyber / Net / Pentest
       scan_port: async (host, port) => {
          const net = require("net");

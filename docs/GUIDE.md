@@ -340,7 +340,65 @@ gui(handler)
 
 ---
 
-## 9. Créer un Exécutable (.exe)
+## 9. Modules Avancés (Cybersécurité & OSINT)
+
+Fazer intègre des outils puissants pour les experts en sécurité et l'OSINT.
+
+### OSINT (Renseignement en Sources Ouvertes)
+
+```fazer
+# WHOIS
+info := whois("google.com")
+print(info)
+
+# Géolocalisation IP
+loc := geoip("8.8.8.8")
+print("Pays : " + get(loc, "country"))
+print("Ville : " + get(loc, "city"))
+
+# Extraction HTML (Scraping léger)
+html := fetch("https://example.com").body
+titres := html_extract(html, "h1")
+print(titres)
+```
+
+### Système Avancé (Windows/Linux)
+
+Contrôlez le système en profondeur.
+
+```fazer
+# Lister les processus
+procs := ps_list()
+# procs est une liste d'objets : { "name": "chrome.exe", "pid": "1234", "mem": "50MB" }
+
+# Tuer un processus
+kill(1234)
+
+# Capture d'écran (Spying/Monitoring)
+screenshot("capture.png")
+```
+
+### Réseau & Pentest
+
+```fazer
+# Écouteur TCP (Reverse Shell receiver ou Honeypot)
+fn on_data(data, id) ->
+    print("[" + id + "] Reçu : " + data)
+    return "Commande reçue\n"
+end
+
+srv := tcp_listen(4444, on_data)
+# srv.close() pour arrêter
+
+# Fuzzing Web (Découverte de fichiers cachés)
+wordlist := ["admin", "login", "backup", ".env"]
+res := fuzz_url("http://target.com", wordlist)
+# res contient : [{ "path": "admin", "status": 200 }, ...]
+```
+
+---
+
+## 10. Créer un Exécutable (.exe)
 
 Vous pouvez distribuer votre application sans que les utilisateurs aient besoin d'installer Fazer.
 
@@ -359,7 +417,7 @@ Cela crée un dossier `dist/mon_app/` contenant `mon_app.exe`.
 
 ---
 
-## 10. Bonnes Pratiques
+## 11. Bonnes Pratiques
 
 1.  **Organisation** : Utilisez `import("module.fz")` pour découper votre code.
 2.  **Sécurité** : Utilisez les fonctions `encText` / `decText` pour chiffrer vos données sensibles.
