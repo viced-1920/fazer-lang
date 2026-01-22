@@ -211,13 +211,31 @@ class FazerParser extends EmbeddedActionsParser {
       const tok = $.CONSUME(If);
       const expr = $.SUBRULE($.expression);
       $.CONSUME(Arrow);
-      const thenBlock = $.SUBRULE($.block);
+      const thenBlock = $.SUBRULE($.body);
       let elseBlock = null;
-      $.OPTION(() => {
-        $.CONSUME(Else);
-        $.CONSUME2(Arrow);
-        elseBlock = $.SUBRULE2($.block);
-      });
+      $.OR([
+        { ALT: () => $.CONSUME(End) },
+        {
+          ALT: () => {
+            $.CONSUME(Else);
+            $.OR2([
+              {
+                ALT: () => {
+                  const nested = $.SUBRULE($.ifStmt);
+                  elseBlock = [nested];
+                }
+              },
+              {
+                ALT: () => {
+                  $.CONSUME2(Arrow);
+                  elseBlock = $.SUBRULE2($.body);
+                  $.CONSUME2(End);
+                }
+              }
+            ]);
+          }
+        }
+      ]);
       return node("if", { expr, thenBlock, elseBlock, loc: locOf(tok) });
     });
 
@@ -271,12 +289,17 @@ class FazerParser extends EmbeddedActionsParser {
       return node("case", { expr, arms, loc: locOf(caseTok) });
     });
 
-    $.RULE("block", () => {
+    $.RULE("body", () => {
       const stmts = [];
       $.MANY(() => {
         const s = $.SUBRULE($.statement);
         if (s) stmts.push(s);
       });
+      return stmts;
+    });
+
+    $.RULE("block", () => {
+      const stmts = $.SUBRULE($.body);
       $.CONSUME(End);
       return stmts;
     });
@@ -795,6 +818,31 @@ class FazerRuntime {
         }
       },
 
+      // Terminal / UI Advanced
+      term_clear: () => (process.stdout.write("\x1b[2J\x1b[H"), null),
+      term_pos: (r, c) => (process.stdout.write(`\x1b[${r};${c}H`), null),
+      term_up: (n) => (process.stdout.write(`\x1b[${n}A`), null),
+      term_down: (n) => (process.stdout.write(`\x1b[${n}B`), null),
+      term_left: (n) => (process.stdout.write(`\x1b[${n}D`), null),
+      term_right: (n) => (process.stdout.write(`\x1b[${n}C`), null),
+      term_hide: () => (process.stdout.write("\x1b[?25l"), null),
+      term_show: () => (process.stdout.write("\x1b[?25h"), null),
+      term_size: () => ({ rows: process.stdout.rows, cols: process.stdout.columns }),
+      
+      term_raw: (enable) => {
+        if (process.stdin.isTTY) {
+            process.stdin.setRawMode(!!enable);
+            if (enable) process.stdin.resume();
+            // Do not pause, as it might kill the process event loop if no other handles
+        }
+        return null;
+      },
+      term_read: () => {
+        // Non-blocking read from stdin buffer
+        const chunk = process.stdin.read(1);
+        return chunk ? String(chunk) : null;
+      },
+
       style: (s, color) => style(s, String(color || "reset")),
       box: (title, ...lines) => box(title, lines),
 
@@ -901,6 +949,9 @@ class FazerRuntime {
       str_trim: (s) => String(s).trim(),
       str_upper: (s) => String(s).toUpperCase(),
       str_lower: (s) => String(s).toLowerCase(),
+      str_sub: (s, start, end) => String(s).substring(Number(start), Number(end)),
+      index_of: (s, search) => String(s).indexOf(String(search)),
+      contains: (s, search) => String(s).includes(String(search)),
       
       random: () => Math.random(),
       round: (x) => Math.round(Number(x)),
@@ -946,7 +997,8 @@ class FazerRuntime {
         try {
           return child_process.execSync(String(cmd)).toString();
         } catch (e) {
-          return null;
+          if (e.stdout && e.stdout.length > 0) return e.stdout.toString();
+          return "Error: " + e.message;
         }
       },
       
@@ -1746,6 +1798,52 @@ class FazerRuntime {
               req.end();
           });
       },
+
+      http_parallel: async (reqs, opts = {}) => {
+          // Parallel HTTP requests
+          // reqs: list of { url, method, ... } or strings
+          if (!Array.isArray(reqs)) return [];
+          const concurrency = Number(opts && opts.concurrency) || 10;
+          const timeout = Number(opts && opts.timeout) || 5000;
+          
+          const results = new Array(reqs.length);
+          let index = 0;
+          
+          const worker = async () => {
+              while (index < reqs.length) {
+                  const i = index++;
+                  const r = reqs[i];
+                  let url, options;
+                  
+                  if (typeof r === "string") {
+                      url = r;
+                      options = { timeout };
+                  } else {
+                      url = r.url;
+                      options = { ...r, timeout: r.timeout || timeout };
+                  }
+                  
+                  if (!url) {
+                      results[i] = { error: "No URL" };
+                      continue;
+                  }
+                  
+                  try {
+                      results[i] = await builtins.http_req(url, options);
+                  } catch (e) {
+                      results[i] = { error: e.message };
+                  }
+              }
+          };
+          
+          const workers = [];
+          for (let k = 0; k < Math.min(reqs.length, concurrency); k++) {
+              workers.push(worker());
+          }
+          await Promise.all(workers);
+          return results;
+      },
+
 
       // --- Red Team / Malware Dev Simulation (Educational) ---
       
