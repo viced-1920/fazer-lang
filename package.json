@@ -1,0 +1,48 @@
+{
+  "name": "fazer-lang",
+  "version": "2.4.0",
+  "description": "Fazer — The ultimate automation language. Batteries-included: Native EXE Build, Icons, HTTP Server, System Exec, Clipboard, Discord, Crypto, and Pipe Operators (->).",
+  "main": "fazer.js",
+  "bin": {
+    "fazer": "fazer.js"
+  },
+  "files": [
+    "fazer.js",
+    "README.md",
+    "LICENSE",
+    "docs/",
+    "tools/"
+  ],
+  "dependencies": {
+    "chevrotain": "^11.0.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "node fazer.js",
+    "test": "node fazer.js --version"
+  },
+  "keywords": [
+    "fazer",
+    "language",
+    "scripting",
+    "interpreter",
+    "pipe-operator",
+    "functional",
+    "secure",
+    "automation",
+    "discord-bot",
+    "http-server",
+    "system-automation"
+  ],
+  "author": "Fazer Corp",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/viced-1920/fazer-lang.git"
+  },
+  "bugs": {
+    "url": "https://github.com/viced-1920/fazer-lang/issues"
+  },
+  "homepage": "https://github.com/viced-1920/fazer-lang#readme"
+}

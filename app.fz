@@ -1,0 +1,84 @@
+# Fazer Native GUI Demo
+# This application demonstrates the true native Windows GUI capabilities of Fazer.
+
+# 1. Define UI Layout
+# window(Title, Width, Height, IconPath)
+window("Fazer Native App", 400, 350, "app.ico")
+
+label("lbl_title", "Native GUI Demo", 20, 10, 360, 30)
+label("lbl_info", "Counter: 0", 20, 50, 360, 30)
+
+button("btn_inc", "Increment (+)", 20, 90, 170, 40)
+button("btn_dec", "Decrement (-)", 210, 90, 170, 40)
+
+label("lbl_input", "Enter your name:", 20, 150, 360, 20)
+entry("txt_name", "Guest", 20, 180, 360, 30)
+
+button("btn_greet", "Greet Me", 20, 230, 360, 40)
+button("btn_exit", "Exit", 20, 280, 360, 40)
+
+# 2. Initialize State
+# Use := for assignment!
+state := { 
+  "count": 0,
+  "name": "Guest"
+}
+
+# 3. Define Event Handler
+fn handle_event(ev) ->
+  id := ev["id"]
+  type := ev["type"]
+  val := ev["value"]
+
+  # Debug print to console
+  print("Event: " + id + " [" + type + "] " + val)
+
+  # Handle Button Clicks
+  case id
+    # Increment
+    == "btn_inc" ->
+      current := state["count"]
+      new_val := current + 1
+      set(state, "count", new_val)
+      set_text("lbl_info", "Counter: " + new_val)
+    end
+
+    # Decrement
+    == "btn_dec" ->
+      current := state["count"]
+      new_val := current - 1
+      set(state, "count", new_val)
+      set_text("lbl_info", "Counter: " + new_val)
+    end
+
+    # Greet
+    == "btn_greet" ->
+      name := state["name"]
+      msgbox("Hello, " + name + "! Welcome to Fazer Native.")
+    end
+    
+    # Exit
+    == "btn_exit" ->
+      msgbox("To exit, close the window.")
+    end
+
+    # Handle Input Changes
+    == "txt_name" ->
+      # Use case for conditional check
+      case type
+        == "change" ->
+          set(state, "name", val)
+        end
+      end
+    end
+    
+    else ->
+      # Ignore other events
+    end
+  end
+end
+
+# 4. Start the Event Loop
+print("Starting Native GUI...")
+gui(handle_event)
+print("GUI Closed.")
