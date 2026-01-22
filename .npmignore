@@ -1,0 +1,17 @@
+# Ignore development and system files
+.git
+.gitignore
+.DS_Store
+Thumbs.db
+node_modules
+dist
+test
+*.log
+
+# Ignore local scripts not meant for distribution
+*.fz
+!app.fz
+!tools/*.fz
+
+# Ignore raw source if using a build process (not applicable here, but good practice)
+# src/

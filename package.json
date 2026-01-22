@@ -1,14 +1,17 @@
 {
   "name": "fazer-lang",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Fazer — The ultimate automation language. Batteries-included: Native EXE Build, Red Team Tools (Crypto/Reg/Shell), Icons, HTTP Server, System Exec, Clipboard, Discord, and Pipe Operators (->).",
   "main": "fazer.js",
+  "types": "index.d.ts",
   "bin": {
     "fazer": "fazer.js"
   },
   "files": [
     "fazer.js",
+    "index.d.ts",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "docs/",
     "tools/"
@@ -20,7 +23,9 @@
   "devDependencies": {},
   "scripts": {
     "start": "node fazer.js",
-    "test": "node fazer.js --version"
+    "test": "node fazer.js --version",
+    "build": "echo 'No build step required for JS interpreter'",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "fazer",
@@ -33,7 +38,9 @@
     "automation",
     "discord-bot",
     "http-server",
-    "system-automation"
+    "system-automation",
+    "osint",
+    "red-team"
   ],
   "author": "Fazer Corp",
   "license": "MIT",

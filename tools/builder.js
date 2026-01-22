@@ -93,8 +93,8 @@ class Program {
         psi.Arguments = "\\\"" + script + "\\\" \\\"" + app + "\\\" " + extraArgs;
         
         psi.UseShellExecute = false;
-        psi.CreateNoWindow = true; 
-        psi.WindowStyle = ProcessWindowStyle.Hidden;
+        psi.CreateNoWindow = false; 
+        psi.WindowStyle = ProcessWindowStyle.Normal;
 
         try {
             Process p = Process.Start(psi);

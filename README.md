@@ -39,13 +39,13 @@ Le dossier généré est **portable** : zippez-le et envoyez-le à n'importe qui
 
 ## Documentation
 
-🎓 **[NOUVEAU : Le Guide Ultime (A-Z)](docs/GUIDE.md)** - Commencez ici ! C'est la ressource la plus complète pour apprendre Fazer.
+🎓 **[NOUVEAU : Le Guide Ultime (A-Z)](https://github.com/viced-1920/fazer-lang/blob/main/docs/GUIDE.md)** - Commencez ici ! C'est la ressource la plus complète pour apprendre Fazer.
 
 Documentation détaillée par section :
-*   [Guide de Démarrage](docs/getting-started.md)
-*   [Syntaxe du Langage](docs/syntax.md)
-*   [Bibliothèque Standard (Stdlib)](docs/stdlib.md)
-*   [Exemples](docs/examples.md)
+*   [Guide de Démarrage](https://github.com/viced-1920/fazer-lang/blob/main/docs/getting-started.md)
+*   [Syntaxe du Langage](https://github.com/viced-1920/fazer-lang/blob/main/docs/syntax.md)
+*   [Bibliothèque Standard (Stdlib)](https://github.com/viced-1920/fazer-lang/blob/main/docs/stdlib.md)
+*   [Exemples](https://github.com/viced-1920/fazer-lang/blob/main/docs/examples.md)
 
 ## Fonctionnalités Clés
 
