@@ -140,6 +140,20 @@ while i < 5 ->
 end
 ```
 
+### Gestion d'Erreurs (`try/catch`)
+
+Pour rendre vos programmes solides, interceptez les erreurs potentielles.
+
+```fazer
+try ->
+    # Code risqué
+    f := readText("fichier_inexistant.txt")
+catch e ->
+    # Gestion de l'erreur
+    print("Oups : " + e)
+end
+```
+
 ---
 
 ## 6. Fonctions
@@ -202,6 +216,24 @@ fn handler(req) ->
   return "<h1>Site Fazer</h1>"
 end
 server(8080, handler)
+```
+
+### Crypto & Encoding
+
+Fazer intègre des outils pour chiffrer et encoder vos données.
+
+```fazer
+# Base64
+b64 := base64_encode("Hello World")
+txt := base64_decode(b64)
+
+# AES-256 (Chiffrement symétrique)
+key := "mon_mot_de_passe_super_secret"
+crypted := aes_encrypt("Donnée Confidentielle", key)
+print("Encrypted: " + crypted)
+
+decrypted := aes_decrypt(crypted, key)
+print("Decrypted: " + decrypted)
 ```
 
 ### Cybersécurité & Pentesting (Nouveau 2.5)
@@ -274,7 +306,13 @@ window("Mon App Fazer", 400, 300, "icon.ico")
 # Ajouter des widgets
 label("lbl_info", "Entrez votre nom :", 20, 20, 300, 30)
 entry("txt_nom", "", 20, 60, 300, 30)
-button("btn_ok", "Valider", 20, 110, 100, 40)
+
+# Nouveaux Widgets (v2.6)
+checkbox("chk_admin", "Mode Admin", 20, 100, 150, 30)
+combo("cmb_role", "Utilisateur,Modérateur,Admin", 180, 100, 140, 30)
+progress("prg_loading", 0, 20, 140, 300, 20)
+
+button("btn_ok", "Valider", 20, 180, 100, 40)
 
 # État de l'application
 state := { "nom": "" }
@@ -282,19 +320,19 @@ state := { "nom": "" }
 # Gestionnaire d'événements
 fn handler(ev) ->
   id := ev["id"]
+  val := ev["value"]
   
   case id
-    == "txt_nom" ->
-      # Mettre à jour l'état quand on tape
-      set(state, "nom", ev["value"])
-    end
-    
+    == "txt_nom" -> set(state, "nom", val) end
+    == "chk_admin" -> print("Admin: " + val) end # True/False
     == "btn_ok" ->
       nom := get(state, "nom")
-      msgbox("Bonjour " + nom + " !")
+      set_text("prg_loading", 100) # Remplir la barre
+      msgbox("Bonjour " + nom)
     end
   end
 end
+
 
 # Lancer l'application
 gui(handler)

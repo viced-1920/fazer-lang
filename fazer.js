@@ -32,6 +32,8 @@ const End = createToken({ name: "End", pattern: /end\b/ });
 const Fn = createToken({ name: "Fn", pattern: /fn\b/ });
 const Return = createToken({ name: "Return", pattern: /return\b/ });
 const While = createToken({ name: "While", pattern: /while\b/ });
+const Try = createToken({ name: "Try", pattern: /try\b/ });
+const Catch = createToken({ name: "Catch", pattern: /catch\b/ });
 const Mut = createToken({ name: "Mut", pattern: /mut\b/ });
 
 const True = createToken({ name: "True", pattern: /true\b/ });
@@ -94,6 +96,8 @@ const allTokens = [
   Fn,
   Return,
   While,
+  Try,
+  Catch,
   Mut,
 
   True,
@@ -161,6 +165,7 @@ class FazerParser extends EmbeddedActionsParser {
         { ALT: () => $.SUBRULE($.fnDef) },
         { ALT: () => $.SUBRULE($.returnStmt) },
         { ALT: () => $.SUBRULE($.whileStmt) },
+        { ALT: () => $.SUBRULE($.tryStmt) },
         {
           GATE: () => {
             const t1 = $.LA(1).tokenType;
@@ -205,6 +210,17 @@ class FazerParser extends EmbeddedActionsParser {
       $.CONSUME(Arrow);
       const body = $.SUBRULE($.block);
       return node("while", { expr, body, loc: locOf(tok) });
+    });
+
+    $.RULE("tryStmt", () => {
+      const tok = $.CONSUME(Try);
+      $.CONSUME(Arrow);
+      const tryBlock = $.SUBRULE($.block);
+      $.CONSUME(Catch);
+      const errVar = $.CONSUME(Identifier).image;
+      $.CONSUME2(Arrow);
+      const catchBlock = $.SUBRULE2($.block);
+      return node("try", { tryBlock, catchBlock, errVar, loc: locOf(tok) });
     });
 
     $.RULE("assignStmt", () => {
@@ -1156,6 +1172,28 @@ class FazerRuntime {
           this.native_ui_state.widgets.push({ type: 'widget', cls: 'TextBox', id, text, x, y, w, h });
           return id;
       },
+
+      textarea: (id, text, x, y, w, h) => {
+          this.native_ui_state.widgets.push({ type: 'widget', cls: 'RichTextBox', id, text, x, y, w, h });
+          return id;
+      },
+      
+      checkbox: (id, text, x, y, w, h) => {
+          this.native_ui_state.widgets.push({ type: 'widget', cls: 'CheckBox', id, text, x, y, w, h });
+          return id;
+      },
+      
+      progress: (id, val, x, y, w, h) => {
+          this.native_ui_state.widgets.push({ type: 'widget', cls: 'ProgressBar', id, text: val, x, y, w, h });
+          return id;
+      },
+      
+      combo: (id, items, x, y, w, h) => {
+          // items should be comma separated string or list (handled in UI gen)
+          const itemList = Array.isArray(items) ? items.join(",") : String(items);
+          this.native_ui_state.widgets.push({ type: 'widget', cls: 'ComboBox', id, text: itemList, x, y, w, h });
+          return id;
+      },
       
       set_text: (id, val) => {
           if (!this.native_ui_state.updates.set_text) this.native_ui_state.updates.set_text = {};
@@ -1254,15 +1292,31 @@ class FazerRuntime {
      
          for (const w of widgets) {
              if (w.type === 'window') continue;
+             let extra = "";
+             let textProp = `$${w.id}.Text = "${w.text}"`;
+             
+             if (w.cls === "ComboBox") {
+                 const items = String(w.text).split(",");
+                 extra = `$${w.id}.DropDownStyle = "DropDownList"\n`;
+                 items.forEach(i => {
+                    extra += `$${w.id}.Items.Add("${i.trim()}")\n`;
+                 });
+                 if(items.length > 0) extra += `$${w.id}.SelectedIndex = 0\n`;
+                 textProp = ""; 
+             } else if (w.cls === "ProgressBar") {
+                 textProp = `$${w.id}.Value = ${Number(w.text) || 0}`;
+             }
+
              ps += `
              $${w.id} = New-Object System.Windows.Forms.${w.cls}
              $${w.id}.Name = "${w.id}"
-             $${w.id}.Text = "${w.text}"
+             ${textProp}
              $${w.id}.Left = ${w.x}
              $${w.id}.Top = ${w.y}
              $${w.id}.Width = ${w.w}
              $${w.id}.Height = ${w.h}
              $${w.id}.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+             ${extra}
              `;
              
              if (w.cls === 'Button') {
@@ -1272,12 +1326,24 @@ class FazerRuntime {
                 $${w.id}.FlatAppearance.BorderSize = 0
                 $${w.id}.Add_Click({ Send-Event "${w.id}" "click" "" })
                 `;
-            } else if (w.cls === 'TextBox') {
+            } else if (w.cls === 'TextBox' || w.cls === 'RichTextBox') {
                  ps += `
                  $${w.id}.BorderStyle = "FixedSingle"
                  $${w.id}.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
                  $${w.id}.ForeColor = [System.Drawing.Color]::White
                  $${w.id}.Add_TextChanged({ Send-Event "${w.id}" "change" $this.Text })
+                 `;
+            } else if (w.cls === 'CheckBox') {
+                 ps += `
+                 $${w.id}.ForeColor = [System.Drawing.Color]::White
+                 $${w.id}.Add_CheckedChanged({ Send-Event "${w.id}" "change" $this.Checked })
+                 `;
+            } else if (w.cls === 'ComboBox') {
+                 ps += `
+                 $${w.id}.BackColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
+                 $${w.id}.ForeColor = [System.Drawing.Color]::White
+                 $${w.id}.FlatStyle = "Flat"
+                 $${w.id}.Add_SelectedIndexChanged({ Send-Event "${w.id}" "change" $this.SelectedItem })
                  `;
             }
              
@@ -1417,6 +1483,11 @@ class FazerRuntime {
       round: (n) => Math.round(Number(n)),
       floor: (n) => Math.floor(Number(n)),
       ceil: (n) => Math.ceil(Number(n)),
+      
+      fetch: async (url, opts = {}) => {
+         const http_req = builtins.http_req;
+         return await http_req(url, opts);
+      },
 
       // Cyber / Net / Pentest
       scan_port: async (host, port) => {
@@ -1442,6 +1513,30 @@ class FazerRuntime {
       sha1: (s) => crypto.createHash('sha1').update(String(s)).digest('hex'),
       sha256: (s) => crypto.createHash('sha256').update(String(s)).digest('hex'),
       
+      // Crypto & Encoding
+      base64_encode: (s) => Buffer.from(String(s)).toString('base64'),
+      base64_decode: (s) => Buffer.from(String(s), 'base64').toString('utf8'),
+      aes_encrypt: (text, key) => {
+          const k = crypto.createHash('sha256').update(String(key)).digest();
+          const iv = crypto.randomBytes(16);
+          const cipher = crypto.createCipheriv('aes-256-cbc', k, iv);
+          let encrypted = cipher.update(String(text));
+          encrypted = Buffer.concat([encrypted, cipher.final()]);
+          return iv.toString('hex') + ':' + encrypted.toString('hex');
+      },
+      aes_decrypt: (text, key) => {
+          try {
+             const parts = String(text).split(':');
+             const iv = Buffer.from(parts.shift(), 'hex');
+             const encryptedText = Buffer.from(parts.join(':'), 'hex');
+             const k = crypto.createHash('sha256').update(String(key)).digest();
+             const decipher = crypto.createDecipheriv('aes-256-cbc', k, iv);
+             let decrypted = decipher.update(encryptedText);
+             decrypted = Buffer.concat([decrypted, decipher.final()]);
+             return decrypted.toString();
+          } catch(e) { return null; }
+      },
+
       http_req: async (url, opts = {}) => {
           // More advanced version of fetch for pentesting
           // opts: { method, headers, body, timeout }
@@ -1532,6 +1627,21 @@ class FazerRuntime {
            last = out;
         }
         return last;
+      }
+
+      case "try": {
+        try {
+           const inner = new Scope(scope);
+           const out = await this._execBlock(stmt.tryBlock, inner);
+           if (out instanceof ReturnSignal) return out;
+           return out;
+        } catch (e) {
+           const inner = new Scope(scope);
+           inner.set(stmt.errVar, { type: "str", value: e.message || String(e) }, false);
+           const out = await this._execBlock(stmt.catchBlock, inner);
+           if (out instanceof ReturnSignal) return out;
+           return out;
+        }
       }
 
       case "case": {
