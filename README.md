@@ -39,12 +39,12 @@ Le dossier généré est **portable** : zippez-le et envoyez-le à n'importe qui
 
 ## Documentation
 
-La documentation complète est disponible dans le dossier [`docs/`](./docs/README.md).
+La documentation complète est disponible dans le dossier [`docs/`](https://github.com/viced-1920/fazer-lang/blob/master/docs/README.md).
 
-*   [Guide de Démarrage](./docs/getting-started.md)
-*   [Syntaxe du Langage](./docs/syntax.md)
-*   [Bibliothèque Standard (Stdlib)](./docs/stdlib.md)
-*   [Exemples](./docs/examples.md)
+*   [Guide de Démarrage](https://github.com/viced-1920/fazer-lang/blob/master/docs/getting-started.md)
+*   [Syntaxe du Langage](https://github.com/viced-1920/fazer-lang/blob/master/docs/syntax.md)
+*   [Bibliothèque Standard (Stdlib)](https://github.com/viced-1920/fazer-lang/blob/master/docs/stdlib.md)
+*   [Exemples](https://github.com/viced-1920/fazer-lang/blob/master/docs/examples.md)
 
 ## Fonctionnalités Clés
 
