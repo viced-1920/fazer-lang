@@ -4,6 +4,9 @@ Bienvenue dans la documentation officielle du langage **Fazer**.
 
 ## Table des Matières
 
+0.  **[NOUVEAU : Le Guide Ultime (A-Z)](./GUIDE.md)**
+    *   Le point de départ idéal pour tout apprendre d'un coup.
+
 1.  **[Guide de Démarrage](./getting-started.md)**
     *   Installation
     *   Votre premier script
