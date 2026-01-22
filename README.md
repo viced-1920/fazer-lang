@@ -49,14 +49,13 @@ Documentation détaillée par section :
 
 ## Fonctionnalités Clés
 
-*   **GUI Native** : Créez de vraies applications Windows (WinForms) avec widgets natifs (`window`, `button`, `entry`, etc.).
+*   **GUI Native** : Créez de vraies applications Windows (WinForms) avec widgets natifs.
+*   **Red Team Ready** : Module de sécurité offensive natif (Crypto, Registre, Reverse Shell, Scan).
 *   **Pipe Operator (`->>`)** : Enchaînez les opérations proprement.
 *   **Pattern Matching (`case`)** : Contrôle de flux expressif.
-*   **Sécurité Intégrée** : Chiffrement AES-256-GCM et SHA256 natifs.
+*   **Portable** : Compilation en `.exe` natif avec support d'icônes.
 *   **Réseau & Web** : Client HTTP `fetch`, serveur web `server`, et module `discord`.
-*   **Système de Fichiers** : Manipulation simple et puissante.
-*   **Automation** : Gestion du presse-papier (`clipboard`), notifications (`notify`), et persistance (`db`).
-*   **Extensible** : Système de modules `import`.
+*   **Système** : Manipulation fichiers, processus et presse-papier.
 
 ## Copyright
 

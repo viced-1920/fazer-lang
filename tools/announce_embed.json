@@ -1,0 +1,38 @@
+{
+  "title": "💀 Fazer 2.5.0 Released - The \"Red Team\" Update",
+  "description": "Une mise à jour **MAJEURE** transformant Fazer en un véritable couteau suisse pour le **Pentest**, le **Malware Dev** et l'**OSINT**. Fazer n'est plus seulement un langage éducatif, c'est une arme de développement rapide.\n\n`npm install -g fazer-lang` pour mettre à jour.",
+  "color": 16711680,
+  "fields": [
+    {
+      "name": "🕵️‍♂️ Cyber & Cryptographie (Ransomware Sim)",
+      "value": "• **`encrypt_file(file, key, iv)`** : Chiffrement AES-256-CBC de fichiers entiers.\n• **`decrypt_file(file, key, iv)`** : Déchiffrement rapide.\n• **`walk_dir(path)`** : Scan récursif ultra-rapide pour lister tous les fichiers d'un disque (Cible idéale pour ransomware).",
+      "inline": false
+    },
+    {
+      "name": "🛡️ Système & Persistance (RAT / Malware)",
+      "value": "• **`registry_set(key, name, val)`** : Écriture dans le registre Windows (HKCU/HKLM) pour assurer la persistance au démarrage.\n• **`registry_get(key, name)`** : Lecture de configurations système.\n• **`set_wallpaper(path)`** : Changement du fond d'écran via API système (Troll / Defacement).\n• **`exec(cmd)`** : Exécution de commandes shell natives (PowerShell/CMD) en mode silencieux.",
+      "inline": false
+    },
+    {
+      "name": "📡 Réseau & C2 (Reverse Shell)",
+      "value": "• **`tcp_connect(ip, port, callback)`** : Créez des clients TCP/Reverse Shells en 3 lignes de code.\n• **`tcp_listen(port, callback)`** : Montez un serveur C2 (Command & Control) léger pour recevoir les exfiltrations.",
+      "inline": false
+    },
+    {
+      "name": "⚡ Utilitaires & Evasion",
+      "value": "• **`sleep(ms)`** : Pause l'exécution pour contourner les analyses heuristiques (Sandbox evasion).\n• **`Fazer Studio`** : IDE complet mis à jour avec support de ces nouvelles fonctions.",
+      "inline": false
+    },
+    {
+      "name": "📚 Documentation",
+      "value": "Le [GUIDE.md](https://github.com/votre-repo/fazer/blob/main/docs/GUIDE.md) a été entièrement réécrit avec une section **PENTESTING** dédiée.",
+      "inline": false
+    }
+  ],
+  "footer": {
+    "text": "Fazer Lang - Hack The World (Ethically) 🚩"
+  },
+  "thumbnail": {
+    "url": "https://cdn-icons-png.flaticon.com/512/2920/2920349.png"
+  }
+}

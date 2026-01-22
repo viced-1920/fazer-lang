@@ -1,135 +1,106 @@
-# Le Guide Ultime de Fazer (A-Z)
+# Le Guide Ultime de Fazer (A-Z) - Édition 2.5
 
-Bienvenue dans le guide complet du langage **Fazer**. Ce document est conçu pour vous apprendre tout ce qu'il y a à savoir sur Fazer, de l'installation à la création d'applications graphiques natives.
+Bienvenue dans l'univers de **Fazer**. Ce guide a été conçu pour vous accompagner de vos premières lignes de code jusqu'à la maîtrise des fonctionnalités les plus avancées (Pentest, GUI, Réseau).
 
----
-
-## 1. Introduction
-
-Fazer est un langage de script moderne, interprété et "batteries included". Il est conçu pour :
-*   L'automatisation système (remplaçant PowerShell/Batch pour beaucoup de tâches).
-*   La création rapide d'interfaces graphiques (GUI) natives Windows.
-*   Le scripting réseau (serveurs HTTP, bots Discord).
-*   La simplicité grâce à une syntaxe épurée et l'opérateur "Pipe".
-
-### Pourquoi Fazer ?
-*   **Simple** : Pas de classes, pas de `this`, pas de boilerplate.
-*   **Puissant** : Bibliothèque standard riche (FS, Crypto, Net, GUI).
-*   **Portable** : Compilez vos scripts en exécutables `.exe` autonomes.
+Que vous soyez un débutant complet ou un développeur expérimenté, ce manuel est votre référence.
 
 ---
 
-## 2. Installation
+## 📚 Table des Matières
 
-### Prérequis
-*   Node.js (v14+) installé sur votre machine.
-
-### Installation Rapide
-1.  Clonez ou téléchargez le dossier `fazer-lang`.
-2.  Dans le dossier, double-cliquez sur **`install_system.ps1`**.
-    *   Cela ajoute `fazer` à votre PATH.
-    *   Cela associe les fichiers `.fz` à l'interpréteur.
-
-### Vérification
-Ouvrez un terminal (CMD ou PowerShell) et tapez :
-```bash
-fazer --version
-```
+1.  [Module 1 : Premiers Pas & Installation](#module-1--premiers-pas--installation)
+2.  [Module 2 : Les Bases du Langage](#module-2--les-bases-du-langage)
+3.  [Module 3 : Contrôle du Flux (Logique)](#module-3--contrôle-du-flux-logique)
+4.  [Module 4 : Fonctions & Organisation](#module-4--fonctions--organisation)
+5.  [Module 5 : Manipulation de Fichiers & Système](#module-5--manipulation-de-fichiers--système)
+6.  [Module 6 : Interfaces Graphiques (GUI)](#module-6--interfaces-graphiques-gui)
+7.  [Module 7 : Réseau & Web](#module-7--réseau--web)
+8.  [Module 8 : Cybersécurité & Red Team](#module-8--cybersécurité--red-team)
+9.  [Annexe : Compiler en .EXE](#annexe--compiler-en-exe)
 
 ---
 
-## 3. Premiers Pas
+## Module 1 : Premiers Pas & Installation
 
-Créez un fichier `hello.fz` avec votre éditeur préféré (ou Fazer Studio).
+### C'est quoi Fazer ?
+Fazer est un langage de programmation moderne, simple et puissant. Il est "batteries included", ce qui signifie qu'il contient déjà tout ce qu'il faut pour créer des applications graphiques, des outils réseaux, ou des scripts d'automatisation sans rien installer d'autre.
+
+### Installation
+1.  **Téléchargez** le dossier `fazer-lang`.
+2.  **Exécutez** le script `install_system.ps1` (double-clic).
+3.  C'est tout ! Ouvrez un terminal et tapez `fazer` pour vérifier.
+
+### Votre Premier Script ("Hello World")
+Créez un fichier nommé `hello.fz` :
 
 ```fazer
-# Mon premier script
-print("Bonjour le Monde !")
+print("Bienvenue sur Fazer !")
 ```
 
-Lancez-le via le terminal :
+Lancez-le :
 ```bash
 fazer hello.fz
 ```
 
 ---
 
-## 4. Syntaxe et Concepts de Base
-
-### Commentaires
-Utilisez `#` ou `//` pour commenter votre code.
-
-```fazer
-# Ceci est un commentaire
-// Ceci aussi
-```
+## Module 2 : Les Bases du Langage
 
 ### Variables
-Fazer utilise `:=` pour assigner des variables.
-*   Par défaut, les variables sont **constantes** (immutables).
-*   Utilisez `mut` pour créer une variable modifiable.
+En Fazer, on utilise `:=` pour créer une variable.
+*   Par défaut, une variable ne peut pas changer (elle est **constante**).
+*   Si vous voulez la modifier, utilisez le mot-clé `mut`.
 
 ```fazer
-# Constante (ne peut pas changer)
+# Constante (ne bougera pas)
 nom := "Fazer"
 
-# Variable modifiable
-mut compteur := 0
-compteur := compteur + 1
+# Variable (peut changer)
+mut score := 0
+score := score + 10
+print(score) # Affiche 10
 ```
 
 ### Types de Données
-*   **Nombre** : `10`, `3.14` (Int et Float sont gérés automatiquement)
-*   **Chaîne** : `"Texte"`
-*   **Booléen** : `true`, `false`
-*   **Null** : `null`
-*   **Liste** : `[1, 2, "trois"]`
-*   **Map (Objet)** : `{ "clé": "valeur", "âge": 20 }`
+Fazer gère les types automatiquement :
+*   `"Texte"` (String)
+*   `42` ou `3.14` (Number)
+*   `true` / `false` (Boolean)
+*   `[1, 2, 3]` (List / Tableau)
+*   `{ "nom": "Jean", "age": 20 }` (Map / Objet)
 
 ### L'Opérateur Pipe (`->>`)
-C'est la force de Fazer. Il permet de passer le résultat d'une expression à la fonction suivante. Cela rend le code lisible de gauche à droite.
+C'est la signature de Fazer. Il permet de passer une valeur à la fonction suivante, comme un tuyau.
 
 ```fazer
-# Sans pipe
-println(str_upper("bonjour"))
+# Méthode classique
+print(str_upper("bonjour"))
 
-# Avec pipe
-"bonjour" ->> str_upper ->> println
+# Méthode Fazer (Pipe)
+"bonjour" ->> str_upper ->> print
 ```
+*Lecture : Prends "bonjour", mets-le en majuscules, puis affiche-le.*
 
 ---
 
-## 5. Structures de Contrôle
+## Module 3 : Contrôle du Flux (Logique)
 
-### Conditionnel : Le bloc `case`
-Fazer n'a pas de `if/else` classique. Tout se fait avec `case`, qui est plus puissant.
+### Les Conditions (`if`)
+Fazer utilise des flèches `->` pour délimiter les blocs de code, et `end` pour finir.
 
-**Forme 1 : Comparaison de valeur**
 ```fazer
-valeur := 10
+age := 18
 
-case valeur
-  > 10 -> print("Grand") end
-  == 10 -> print("Égal") end
-  else -> print("Petit") end
+if age >= 18 ->
+    print("Majeur")
+end
+else ->
+    print("Mineur")
 end
 ```
 
-**Forme 2 : Conditions multiples (comme if/else if)**
-```fazer
-nom := "Admin"
-age := 25
-
-case
-  nom == "Admin" -> print("Bonjour Chef") end
-  age >= 18 -> print("Majeur") end
-  else -> print("Accès refusé") end
-end
-```
-
-### Boucles (`while`)
-
-La boucle `while` permet de répéter un bloc de code tant qu'une condition est vraie.
+### Les Boucles (`while`)
+Pour répéter une action tant qu'une condition est vraie.
 
 ```fazer
 mut i := 0
@@ -140,289 +111,139 @@ while i < 5 ->
 end
 ```
 
-### Gestion d'Erreurs (`try/catch`)
-
-Pour rendre vos programmes solides, interceptez les erreurs potentielles.
-
-```fazer
-try ->
-    # Code risqué
-    f := readText("fichier_inexistant.txt")
-catch e ->
-    # Gestion de l'erreur
-    print("Oups : " + e)
-end
-```
-
 ---
 
-## 6. Fonctions
+## Module 4 : Fonctions & Organisation
 
-Définissez une fonction avec `fn`.
+### Créer une Fonction
+Une fonction est un bloc de code réutilisable.
 
 ```fazer
-fn additionner(a, b) ->
-  return a + b
+fn dire_bonjour(nom) ->
+    msg := "Salut " + nom + " !"
+    return msg
 end
 
-res := additionner(5, 10)
+res := dire_bonjour("Alice")
 print(res)
 ```
 
-Les fonctions retournent automatiquement la dernière valeur si `return` n'est pas utilisé, mais `return` est conseillé pour la clarté.
+### Fonctions Anonymes (Lambdas)
+Très utiles pour les événements (GUI, Serveurs).
+
+```fazer
+ma_fonction := fn(x) -> x * 2 end
+print(ma_fonction(10)) # 20
+```
 
 ---
 
-## 7. Bibliothèque Standard (Stdlib)
+## Module 5 : Manipulation de Fichiers & Système
 
-Fazer est livré avec tout ce qu'il faut. Pas besoin d'installer de modules externes pour les tâches courantes.
+Fazer brille pour l'automatisation système.
 
-### Système de Fichiers (File System)
+### Lire et Écrire
 ```fazer
-# Lire un fichier
-contenu := readText("data.txt")
+# Écrire
+fs_write("test.txt", "Contenu du fichier")
 
-# Écrire dans un fichier
-writeText("log.txt", "Opération réussie")
+# Lire
+contenu := fs_read("test.txt")
+print(contenu)
 
-# Vérifier l'existence
-if exists("config.json") -> ... end
-
-# Lister les fichiers
-fichiers := ls(".")
+# Vérifier existence
+if fs_exists("test.txt") -> print("Fichier trouvé !") end
 ```
 
-### Système et Exécution
+### Parcourir des Dossiers (Nouveau 2.5)
 ```fazer
-# Exécuter une commande shell
-res := exec("ipconfig")
-
-# Pause
-sleep(1000) # 1 seconde
-
-# Presse-papier
-clipboard_set("Mon texte")
-presse_papier := clipboard_get()
+fichiers := walk_dir(".") # Liste récursivement tout le dossier actuel
+print("Fichiers trouvés : " + fichiers.length)
 ```
 
-### Réseau (Network)
+### Exécuter des Commandes Système
 ```fazer
-# Requête HTTP GET
-res := fetch("https://api.ipify.org")
-print("Mon IP est : " + res.body)
-
-# Serveur Web Simple
-fn handler(req) ->
-  return "<h1>Site Fazer</h1>"
-end
-server(8080, handler)
+# Lance une commande et récupère la sortie
+ip := exec("ipconfig")
+print(ip)
 ```
-
-### Crypto & Encoding
-
-Fazer intègre des outils pour chiffrer et encoder vos données.
-
-```fazer
-# Base64
-b64 := base64_encode("Hello World")
-txt := base64_decode(b64)
-
-# AES-256 (Chiffrement symétrique)
-key := "mon_mot_de_passe_super_secret"
-crypted := aes_encrypt("Donnée Confidentielle", key)
-print("Encrypted: " + crypted)
-
-decrypted := aes_decrypt(crypted, key)
-print("Decrypted: " + decrypted)
-```
-
-### Cybersécurité & Pentesting (Nouveau 2.5)
-
-Fazer intègre désormais des outils puissants pour l'audit et la sécurité.
-
-**Scan de Port**
-```fazer
-# Scanner un port spécifique
-if scan_port("192.168.1.1", 80) ->
-    print("Port 80 ouvert !")
-end
-
-# Scanner une plage
-mut p := 20
-while p < 100 ->
-    if scan_port("google.com", p) ->
-        print("Port ouvert : " + p)
-    end
-    p := p + 1
-end
-```
-
-**DNS & Réseau**
-```fazer
-ip := dns_resolve("github.com")
-print("IP GitHub : " + ip)
-
-ips := dns_resolve_all("google.com")
-print(ips)
-```
-
-**Hashing & Crypto**
-```fazer
-hash_md5 := md5("secret")
-hash_sha1 := sha1("secret")
-hash_256 := sha256("secret")
-```
-
-**Requêtes HTTP Avancées**
-Pour tester des injections ou des headers spécifiques :
-```fazer
-res := http_req("http://target.com/login", {
-    "method": "POST",
-    "headers": { "User-Agent": "FazerBot/1.0", "Cookie": "admin=true" },
-    "body": "user=admin&pass=' OR '1'='1"
-})
-print("Status: " + res.status)
-print(res.body)
-```
-
-### Utilitaires
-*   `json(obj)` : Convertit en texte JSON.
-*   `parseJson(str)` : Convertit JSON en objet.
-*   `nowMs()` : Temps actuel en millisecondes.
-*   `random()` : Nombre aléatoire entre 0 et 1.
 
 ---
 
-## 8. Interface Graphique Native (GUI)
+## Module 6 : Interfaces Graphiques (GUI)
 
-Fazer permet de créer des fenêtres Windows natives (pas du web/electron) très légères.
-
-### Exemple Complet GUI
+Créez des fenêtres Windows natives en quelques lignes.
 
 ```fazer
-# Définir la fenêtre
-window("Mon App Fazer", 400, 300, "icon.ico")
+config := {
+  title: "Ma App Fazer",
+  w: 400, h: 300,
+  icon: "app.ico" # Support des icônes !
+}
 
-# Ajouter des widgets
-label("lbl_info", "Entrez votre nom :", 20, 20, 300, 30)
-entry("txt_nom", "", 20, 60, 300, 30)
-
-# Nouveaux Widgets (v2.6)
-checkbox("chk_admin", "Mode Admin", 20, 100, 150, 30)
-combo("cmb_role", "Utilisateur,Modérateur,Admin", 180, 100, 140, 30)
-progress("prg_loading", 0, 20, 140, 300, 20)
-
-button("btn_ok", "Valider", 20, 180, 100, 40)
-
-# État de l'application
-state := { "nom": "" }
+# Définition des widgets
+widgets := [
+  { id: "lbl", type: "label", text: "Bienvenue !", x: 10, y: 10, w: 200, h: 30 },
+  { id: "btn", type: "button", text: "Cliquez-moi", x: 10, y: 50, w: 120, h: 40 }
+]
 
 # Gestionnaire d'événements
-fn handler(ev) ->
-  id := ev["id"]
-  val := ev["value"]
-  
-  case id
-    == "txt_nom" -> set(state, "nom", val) end
-    == "chk_admin" -> print("Admin: " + val) end # True/False
-    == "btn_ok" ->
-      nom := get(state, "nom")
-      set_text("prg_loading", 100) # Remplir la barre
-      msgbox("Bonjour " + nom)
-    end
+fn handler(id, event, data) ->
+  if id == "btn" ->
+    notify("Succès", "Vous avez cliqué !")
   end
 end
 
-
-# Lancer l'application
-gui(handler)
+# Lancer la fenêtre
+window(config, widgets, handler)
 ```
 
 ---
 
-## 9. Modules Avancés (Cybersécurité & OSINT)
+## Module 7 : Réseau & Web
 
-Fazer intègre des outils puissants pour les experts en sécurité et l'OSINT.
-
-### OSINT (Renseignement en Sources Ouvertes)
-
-```fazer
-# WHOIS
-info := whois("google.com")
-print(info)
-
-# Géolocalisation IP
-loc := geoip("8.8.8.8")
-print("Pays : " + get(loc, "country"))
-print("Ville : " + get(loc, "city"))
-
-# Extraction HTML (Scraping léger)
-html := fetch("https://example.com").body
-titres := html_extract(html, "h1")
-print(titres)
-```
-
-### Système Avancé (Windows/Linux)
-
-Contrôlez le système en profondeur.
+### Serveur Web Express
+Créez un serveur HTTP en une ligne.
 
 ```fazer
-# Lister les processus
-procs := ps_list()
-# procs est une liste d'objets : { "name": "chrome.exe", "pid": "1234", "mem": "50MB" }
-
-# Tuer un processus
-kill(1234)
-
-# Capture d'écran (Spying/Monitoring)
-screenshot("capture.png")
-```
-
-### Réseau & Pentest
-
-```fazer
-# Écouteur TCP (Reverse Shell receiver ou Honeypot)
-fn on_data(data, id) ->
-    print("[" + id + "] Reçu : " + data)
-    return "Commande reçue\n"
+fn mon_site(req) ->
+    return "<h1>Site propulsé par Fazer</h1>"
 end
 
-srv := tcp_listen(4444, on_data)
-# srv.close() pour arrêter
+# Écoute sur le port 8080
+http_server(8080, mon_site)
+```
 
-# Fuzzing Web (Découverte de fichiers cachés)
-wordlist := ["admin", "login", "backup", ".env"]
-res := fuzz_url("http://target.com", wordlist)
-# res contient : [{ "path": "admin", "status": 200 }, ...]
+### Client HTTP
+```fazer
+page := fetch("https://google.com")
+print(page.status)
 ```
 
 ---
 
-## 10. Créer un Exécutable (.exe)
+## Module 8 : Cybersécurité & Red Team
 
-Vous pouvez distribuer votre application sans que les utilisateurs aient besoin d'installer Fazer.
+**Nouveauté 2.5** : Fazer intègre des outils natifs pour le Pentest et la simulation d'attaques (autorisées).
 
-Utilisez la commande `build` :
+> ⚠️ **AVERTISSEMENT** : Usage éducatif et autorisé uniquement.
+
+### Fonctionnalités Clés
+*   **Chiffrement** : `encrypt_file("secret.txt", "clé")` (AES-256)
+*   **Registre Windows** : `registry_set`, `registry_get` (Persistance)
+*   **Reverse Shell** : `tcp_connect` (Client TCP brut)
+*   **Fond d'écran** : `set_wallpaper("hacked.jpg")`
+
+*Pour un guide détaillé sur ces fonctions, consultez le fichier `PENTESTING.md`.*
+
+---
+
+## Annexe : Compiler en .EXE
+
+Transformez n'importe quel script `.fz` en un exécutable Windows autonome `.exe` que vous pouvez partager.
 
 ```bash
-fazer build mon_app.fz
+fazer build mon_script.fz
 ```
 
-Ou avec une icône :
-```bash
-fazer build mon_app.fz --icon app.ico
-```
-
-Cela crée un dossier `dist/mon_app/` contenant `mon_app.exe`.
-
----
-
-## 11. Bonnes Pratiques
-
-1.  **Organisation** : Utilisez `import("module.fz")` pour découper votre code.
-2.  **Sécurité** : Utilisez les fonctions `encText` / `decText` pour chiffrer vos données sensibles.
-3.  **Nommage** : Utilisez le `snake_case` pour les variables et fonctions (`ma_variable`, `calculer_total`).
-
----
-
-*Fazer - Simple, Rapide, Puissant.*
+L'exécutable sera généré dans le dossier `dist/`. Il contient tout le nécessaire pour fonctionner sans installer Fazer sur la machine cible.

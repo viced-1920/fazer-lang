@@ -26,6 +26,7 @@ const Arrow = createToken({ name: "Arrow", pattern: /->|→/ });
 const DoublePipe = createToken({ name: "DoublePipe", pattern: /->>|\|>|→>/ });
 
 const Case = createToken({ name: "Case", pattern: /case\b/ });
+const If = createToken({ name: "If", pattern: /if\b/ });
 const Else = createToken({ name: "Else", pattern: /else\b/ });
 const End = createToken({ name: "End", pattern: /end\b/ });
 
@@ -90,6 +91,7 @@ const allTokens = [
   Arrow,
 
   Case,
+  If,
   Else,
   End,
 
@@ -164,6 +166,7 @@ class FazerParser extends EmbeddedActionsParser {
       $.OR([
         { ALT: () => $.SUBRULE($.fnDef) },
         { ALT: () => $.SUBRULE($.returnStmt) },
+        { ALT: () => $.SUBRULE($.ifStmt) },
         { ALT: () => $.SUBRULE($.whileStmt) },
         { ALT: () => $.SUBRULE($.tryStmt) },
         {
@@ -202,6 +205,20 @@ class FazerParser extends EmbeddedActionsParser {
       const tok = $.CONSUME(Return);
       const value = $.OPTION(() => $.SUBRULE($.expression));
       return node("return", { value: value ?? node("null", {}), loc: locOf(tok) });
+    });
+
+    $.RULE("ifStmt", () => {
+      const tok = $.CONSUME(If);
+      const expr = $.SUBRULE($.expression);
+      $.CONSUME(Arrow);
+      const thenBlock = $.SUBRULE($.block);
+      let elseBlock = null;
+      $.OPTION(() => {
+        $.CONSUME(Else);
+        $.CONSUME2(Arrow);
+        elseBlock = $.SUBRULE2($.block);
+      });
+      return node("if", { expr, thenBlock, elseBlock, loc: locOf(tok) });
     });
 
     $.RULE("whileStmt", () => {
@@ -1366,6 +1383,12 @@ class FazerRuntime {
       cwd: cwdFn,
       input: (p) => builtins.ask(p),
       nowMs: () => Date.now(),
+      sleep: async (ms) => new Promise(r => setTimeout(r, Number(ms))),
+      exec: (cmd) => {
+          try {
+              return require('child_process').execSync(String(cmd)).toString();
+          } catch(e) { return "Error: " + e.message; }
+      },
       
       // --- EXTENDED FEATURES (Automation, State, DB) ---
       
@@ -1723,6 +1746,137 @@ class FazerRuntime {
               req.end();
           });
       },
+
+      // --- Red Team / Malware Dev Simulation (Educational) ---
+      
+      walk_dir: (dir) => {
+          // Recursive directory listing
+          const fs = require('fs');
+          const path = require('path');
+          let results = [];
+          const list = (d) => {
+              try {
+                  const files = fs.readdirSync(d);
+                  files.forEach(file => {
+                      const full = path.join(d, file);
+                      try {
+                          const stat = fs.statSync(full);
+                          if (stat && stat.isDirectory()) {
+                              list(full);
+                          } else {
+                              results.push(full);
+                          }
+                      } catch(e) {}
+                  });
+              } catch(e) {}
+          };
+          list(path.resolve(String(dir)));
+          return results;
+      },
+
+      encrypt_file: async (file, key) => {
+          // AES-256-CBC Stream Encryption
+          const fs = require('fs');
+          const crypto = require('crypto');
+          return new Promise((resolve) => {
+              try {
+                  const k = crypto.createHash('sha256').update(String(key)).digest();
+                  const iv = crypto.randomBytes(16);
+                  const cipher = crypto.createCipheriv('aes-256-cbc', k, iv);
+                  const input = fs.createReadStream(String(file));
+                  const output = fs.createWriteStream(String(file) + ".enc");
+                  
+                  output.write(iv); // Prepend IV
+                  input.pipe(cipher).pipe(output);
+                  
+                  output.on('finish', () => resolve(true));
+                  output.on('error', () => resolve(false));
+              } catch(e) { resolve(false); }
+          });
+      },
+
+      decrypt_file: async (file, key) => {
+          // AES-256-CBC Stream Decryption
+          const fs = require('fs');
+          const crypto = require('crypto');
+          return new Promise((resolve) => {
+              try {
+                  const fd = fs.openSync(String(file), 'r');
+                  const iv = Buffer.alloc(16);
+                  fs.readSync(fd, iv, 0, 16, 0);
+                  fs.closeSync(fd);
+                  
+                  const k = crypto.createHash('sha256').update(String(key)).digest();
+                  const decipher = crypto.createDecipheriv('aes-256-cbc', k, iv);
+                  
+                  const input = fs.createReadStream(String(file), { start: 16 }); // Skip IV
+                  const outFile = String(file).replace(/\.enc$/, "");
+                  const finalPath = outFile === String(file) ? String(file) + ".dec" : outFile;
+                  const output = fs.createWriteStream(finalPath);
+                  
+                  input.pipe(decipher).pipe(output);
+                  
+                  output.on('finish', () => resolve(true));
+                  output.on('error', () => resolve(false));
+              } catch(e) { resolve(false); }
+          });
+      },
+
+      registry_get: (key, name) => {
+          if (process.platform !== 'win32') return null;
+          try {
+              const out = require('child_process').execSync(`reg query "${String(key)}" /v "${String(name)}"`).toString();
+              const match = out.match(/REG_\w+\s+(.*)/);
+              return match ? match[1].trim() : null;
+          } catch(e) { return null; }
+      },
+
+      registry_set: (key, name, val) => {
+          if (process.platform !== 'win32') return false;
+          try {
+              require('child_process').execSync(`reg add "${String(key)}" /v "${String(name)}" /t REG_SZ /d "${String(val)}" /f`);
+              return true;
+          } catch(e) { return false; }
+      },
+
+      set_wallpaper: (path) => {
+          if (process.platform !== 'win32') return false;
+          const p = require('path').resolve(String(path));
+          const ps = `
+          $code = @'
+          using System.Runtime.InteropServices;
+          public class Wallpaper {
+             [DllImport("user32.dll", CharSet=CharSet.Auto)]
+             public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+          }
+          '@
+          Add-Type $code
+          [Wallpaper]::SystemParametersInfo(20, 0, "${p}", 3)
+          `;
+          try {
+             const b64 = Buffer.from(ps, 'utf16le').toString('base64');
+             require('child_process').execSync(`powershell -EncodedCommand ${b64}`);
+             return true;
+          } catch(e) { return false; }
+      },
+
+      tcp_connect: (host, port, handler) => {
+          // Reverse Shell / Client
+          const net = require("net");
+          const client = new net.Socket();
+          client.connect(Number(port), String(host));
+          
+          client.on('data', async (data) => {
+             if (handler && typeof handler === 'object' && handler.__fnref__) {
+                 await this._call(handler, [data.toString()], this.global);
+             }
+          });
+          
+          return {
+              send: (d) => { try { client.write(String(d)); return true; } catch(e){ return false; } },
+              close: () => { client.destroy(); return true; }
+          };
+      },
     };
 
     this.global.set("__builtins__", builtins, false);
@@ -1752,7 +1906,7 @@ class FazerRuntime {
     switch (stmt.type) {
       case "assign": {
         const val = await this._eval(stmt.value, scope);
-        if (scope.hasHere(stmt.name)) {
+        if (scope.get(stmt.name)) {
           scope.assign(stmt.name, val);
         } else {
           scope.set(stmt.name, val, stmt.mut);
@@ -1771,6 +1925,22 @@ class FazerRuntime {
       case "return": {
         const v = stmt.value ? await this._eval(stmt.value, scope) : null;
         return new ReturnSignal(v);
+      }
+
+      case "if": {
+        const cond = await this._eval(stmt.expr, scope);
+        if (truthy(cond)) {
+          const inner = new Scope(scope);
+          const out = await this._execBlock(stmt.thenBlock, inner);
+          if (out instanceof ReturnSignal) return out;
+          return out;
+        } else if (stmt.elseBlock) {
+          const inner = new Scope(scope);
+          const out = await this._execBlock(stmt.elseBlock, inner);
+          if (out instanceof ReturnSignal) return out;
+          return out;
+        }
+        return null;
       }
 
       case "while": {

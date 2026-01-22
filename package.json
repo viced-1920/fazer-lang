@@ -1,7 +1,7 @@
 {
   "name": "fazer-lang",
-  "version": "2.4.1",
-  "description": "Fazer — The ultimate automation language. Batteries-included: Native EXE Build, Icons, HTTP Server, System Exec, Clipboard, Discord, Crypto, and Pipe Operators (->).",
+  "version": "2.5.0",
+  "description": "Fazer — The ultimate automation language. Batteries-included: Native EXE Build, Red Team Tools (Crypto/Reg/Shell), Icons, HTTP Server, System Exec, Clipboard, Discord, and Pipe Operators (->).",
   "main": "fazer.js",
   "bin": {
     "fazer": "fazer.js"
