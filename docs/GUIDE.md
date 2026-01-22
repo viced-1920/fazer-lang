@@ -127,10 +127,18 @@ case
 end
 ```
 
-### Boucles
-Fazer privilégie l'approche fonctionnelle ou les fonctions natives (`map`, `foreach` à venir). Pour l'instant, pour boucler, on utilise souvent la **récursion** ou des fonctions intégrées comme `gui` (boucle d'événements).
+### Boucles (`while`)
 
-*Note : Une boucle `while` est prévue dans les futures versions.*
+La boucle `while` permet de répéter un bloc de code tant qu'une condition est vraie.
+
+```fazer
+mut i := 0
+
+while i < 5 ->
+    print("Compteur : " + i)
+    i := i + 1
+end
+```
 
 ---
 
@@ -194,6 +202,55 @@ fn handler(req) ->
   return "<h1>Site Fazer</h1>"
 end
 server(8080, handler)
+```
+
+### Cybersécurité & Pentesting (Nouveau 2.5)
+
+Fazer intègre désormais des outils puissants pour l'audit et la sécurité.
+
+**Scan de Port**
+```fazer
+# Scanner un port spécifique
+if scan_port("192.168.1.1", 80) ->
+    print("Port 80 ouvert !")
+end
+
+# Scanner une plage
+mut p := 20
+while p < 100 ->
+    if scan_port("google.com", p) ->
+        print("Port ouvert : " + p)
+    end
+    p := p + 1
+end
+```
+
+**DNS & Réseau**
+```fazer
+ip := dns_resolve("github.com")
+print("IP GitHub : " + ip)
+
+ips := dns_resolve_all("google.com")
+print(ips)
+```
+
+**Hashing & Crypto**
+```fazer
+hash_md5 := md5("secret")
+hash_sha1 := sha1("secret")
+hash_256 := sha256("secret")
+```
+
+**Requêtes HTTP Avancées**
+Pour tester des injections ou des headers spécifiques :
+```fazer
+res := http_req("http://target.com/login", {
+    "method": "POST",
+    "headers": { "User-Agent": "FazerBot/1.0", "Cookie": "admin=true" },
+    "body": "user=admin&pass=' OR '1'='1"
+})
+print("Status: " + res.status)
+print(res.body)
 ```
 
 ### Utilitaires

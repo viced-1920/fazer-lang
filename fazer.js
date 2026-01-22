@@ -31,6 +31,7 @@ const End = createToken({ name: "End", pattern: /end\b/ });
 
 const Fn = createToken({ name: "Fn", pattern: /fn\b/ });
 const Return = createToken({ name: "Return", pattern: /return\b/ });
+const While = createToken({ name: "While", pattern: /while\b/ });
 const Mut = createToken({ name: "Mut", pattern: /mut\b/ });
 
 const True = createToken({ name: "True", pattern: /true\b/ });
@@ -92,6 +93,7 @@ const allTokens = [
 
   Fn,
   Return,
+  While,
   Mut,
 
   True,
@@ -158,6 +160,7 @@ class FazerParser extends EmbeddedActionsParser {
       $.OR([
         { ALT: () => $.SUBRULE($.fnDef) },
         { ALT: () => $.SUBRULE($.returnStmt) },
+        { ALT: () => $.SUBRULE($.whileStmt) },
         {
           GATE: () => {
             const t1 = $.LA(1).tokenType;
@@ -194,6 +197,14 @@ class FazerParser extends EmbeddedActionsParser {
       const tok = $.CONSUME(Return);
       const value = $.OPTION(() => $.SUBRULE($.expression));
       return node("return", { value: value ?? node("null", {}), loc: locOf(tok) });
+    });
+
+    $.RULE("whileStmt", () => {
+      const tok = $.CONSUME(While);
+      const expr = $.SUBRULE($.expression);
+      $.CONSUME(Arrow);
+      const body = $.SUBRULE($.block);
+      return node("while", { expr, body, loc: locOf(tok) });
     });
 
     $.RULE("assignStmt", () => {
@@ -1406,6 +1417,60 @@ class FazerRuntime {
       round: (n) => Math.round(Number(n)),
       floor: (n) => Math.floor(Number(n)),
       ceil: (n) => Math.ceil(Number(n)),
+
+      // Cyber / Net / Pentest
+      scan_port: async (host, port) => {
+         const net = require("net");
+         return new Promise((resolve) => {
+             const socket = new net.Socket();
+             socket.setTimeout(2000);
+             socket.on('connect', () => { socket.destroy(); resolve(true); });
+             socket.on('timeout', () => { socket.destroy(); resolve(false); });
+             socket.on('error', () => { resolve(false); });
+             socket.connect(Number(port), String(host));
+         });
+      },
+      dns_resolve: async (domain) => {
+         const dns = require("dns").promises;
+         try { const res = await dns.lookup(String(domain)); return res.address; } catch(e) { return null; }
+      },
+      dns_resolve_all: async (domain) => {
+         const dns = require("dns").promises;
+         try { const res = await dns.resolve4(String(domain)); return res; } catch(e) { return []; }
+      },
+      md5: (s) => crypto.createHash('md5').update(String(s)).digest('hex'),
+      sha1: (s) => crypto.createHash('sha1').update(String(s)).digest('hex'),
+      sha256: (s) => crypto.createHash('sha256').update(String(s)).digest('hex'),
+      
+      http_req: async (url, opts = {}) => {
+          // More advanced version of fetch for pentesting
+          // opts: { method, headers, body, timeout }
+          const u = new URL(url);
+          const lib = u.protocol === 'https:' ? require('https') : require('http');
+          return new Promise((resolve) => {
+              const req = lib.request(url, {
+                  method: opts.method || 'GET',
+                  headers: opts.headers || {},
+                  timeout: opts.timeout || 5000
+              }, (res) => {
+                  const chunks = [];
+                  res.on('data', c => chunks.push(c));
+                  res.on('end', () => {
+                      const buf = Buffer.concat(chunks);
+                      resolve({
+                          status: res.statusCode,
+                          headers: res.headers,
+                          body: buf.toString(),
+                          raw: buf.toString('base64')
+                      });
+                  });
+              });
+              req.on('error', (e) => resolve({ error: e.message }));
+              req.on('timeout', () => { req.destroy(); resolve({ error: 'timeout' }); });
+              if (opts.body) req.write(String(opts.body));
+              req.end();
+          });
+      },
     };
 
     this.global.set("__builtins__", builtins, false);
@@ -1454,6 +1519,19 @@ class FazerRuntime {
       case "return": {
         const v = stmt.value ? await this._eval(stmt.value, scope) : null;
         return new ReturnSignal(v);
+      }
+
+      case "while": {
+        let last = null;
+        while (await this._eval(stmt.expr, scope)) {
+           // Reuse the scope? Or new scope per iteration?
+           // Typically new scope per iteration for locals.
+           const inner = new Scope(scope);
+           const out = await this._execBlock(stmt.body, inner);
+           if (out instanceof ReturnSignal) return out;
+           last = out;
+        }
+        return last;
       }
 
       case "case": {
