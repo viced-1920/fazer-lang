@@ -1,0 +1,217 @@
+# Fazer 3D Engine Library
+# Provides high-level abstractions for the Fazer3D GFX API
+
+# --- Math Utils ---
+
+fn Vec3(x, y, z) -> { x: x, y: y, z: z } end
+
+fn vec_add(a, b) -> { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z } end
+fn vec_sub(a, b) -> { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z } end
+fn vec_mul(a, s) -> { x: a.x * s, y: a.y * s, z: a.z * s } end
+fn vec_len(v) -> Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) end
+
+fn vec_norm(v) -> 
+    mut l := vec_len(v)
+    if l == 0 -> { x:0, y:0, z:0 }
+    else -> { x: v.x/l, y: v.y/l, z: v.z/l }
+    end
+end
+
+fn vec_cross(a, b) ->
+    {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x
+    }
+end
+
+# --- Physics / Collisions ---
+
+fn aabb_intersect(p1, s1, p2, s2) ->
+    # Check if two AABBs intersect
+    # p = center position, s = full scale/size
+    
+    mut min1_x := p1.x - s1.x / 2.0
+    mut max1_x := p1.x + s1.x / 2.0
+    mut min1_z := p1.z - s1.z / 2.0
+    mut max1_z := p1.z + s1.z / 2.0
+    mut min1_y := p1.y - s1.y / 2.0
+    mut max1_y := p1.y + s1.y / 2.0
+    
+    mut min2_x := p2.x - s2.x / 2.0
+    mut max2_x := p2.x + s2.x / 2.0
+    mut min2_z := p2.z - s2.z / 2.0
+    mut max2_z := p2.z + s2.z / 2.0
+    mut min2_y := p2.y - s2.y / 2.0
+    mut max2_y := p2.y + s2.y / 2.0
+    
+    return (min1_x <= max2_x and max1_x >= min2_x) and
+           (min1_y <= max2_y and max1_y >= min2_y) and
+           (min1_z <= max2_z and max1_z >= min2_z)
+end
+
+# --- Mesh Generators ---
+
+fn create_cube_mesh(id, color) ->
+    # Generate vertices, colors, normals for a cube
+    mut verts := []
+    mut cols := []
+    mut norms := []
+    
+    fn add_face(p1, p2, p3, p4, n) ->
+        # Tri 1: p1, p2, p3
+        verts.push(p1.x, p1.y, p1.z)
+        verts.push(p2.x, p2.y, p2.z)
+        verts.push(p3.x, p3.y, p3.z)
+        
+        # Tri 2: p1, p3, p4
+        verts.push(p1.x, p1.y, p1.z)
+        verts.push(p3.x, p3.y, p3.z)
+        verts.push(p4.x, p4.y, p4.z)
+        
+        # Normals (same for all 6 verts)
+        mut i := 0
+        while i < 6 ->
+            norms.push(n.x, n.y, n.z)
+            cols.push(color.r, color.g, color.b)
+            i := i + 1
+        end
+    end
+    
+    # Cube corners
+    mut p0 := {x:-0.5, y:-0.5, z: 0.5} # 0: - - +
+    mut p1 := {x: 0.5, y:-0.5, z: 0.5} # 1: + - +
+    mut p2 := {x: 0.5, y: 0.5, z: 0.5} # 2: + + +
+    mut p3 := {x:-0.5, y: 0.5, z: 0.5} # 3: - + +
+    mut p4 := {x:-0.5, y:-0.5, z:-0.5} # 4: - - -
+    mut p5 := {x: 0.5, y:-0.5, z:-0.5} # 5: + - -
+    mut p6 := {x: 0.5, y: 0.5, z:-0.5} # 6: + + -
+    mut p7 := {x:-0.5, y: 0.5, z:-0.5} # 7: - + -
+    
+    # Front (0,1,2,3) Z+
+    add_face(p0, p1, p2, p3, {x:0, y:0, z:1})
+    
+    # Back (5,4,7,6) Z-
+    add_face(p5, p4, p7, p6, {x:0, y:0, z:-1})
+    
+    # Right (1,5,6,2) X+
+    add_face(p1, p5, p6, p2, {x:1, y:0, z:0})
+    
+    # Left (4,0,3,7) X-
+    add_face(p4, p0, p3, p7, {x:-1, y:0, z:0})
+    
+    # Top (3,2,6,7) Y+
+    add_face(p3, p2, p6, p7, {x:0, y:1, z:0})
+    
+    # Bottom (4,5,1,0) Y-
+    add_face(p4, p5, p1, p0, {x:0, y:-1, z:0})
+    
+    gfx.mesh_create(id, verts, cols, norms)
+end
+
+fn create_plane_mesh(id, color, w, h) ->
+    mut verts := []
+    mut cols := []
+    mut norms := []
+    
+    mut hw := w / 2.0
+    mut hh := h / 2.0
+    
+    # Quad on XZ plane, facing Y+
+    # p1--p2
+    # |   |
+    # p4--p3
+    
+    mut p1 := {x: -hw, y: 0, z: -hh}
+    mut p2 := {x: hw,  y: 0, z: -hh}
+    mut p3 := {x: hw,  y: 0, z: hh}
+    mut p4 := {x: -hw, y: 0, z: hh}
+    
+    # Tri 1: p4, p2, p1
+    verts.push(p4.x, p4.y, p4.z)
+    verts.push(p2.x, p2.y, p2.z)
+    verts.push(p1.x, p1.y, p1.z)
+    
+    # Tri 2: p4, p3, p2
+    verts.push(p4.x, p4.y, p4.z)
+    verts.push(p3.x, p3.y, p3.z)
+    verts.push(p2.x, p2.y, p2.z)
+    
+    mut i := 0
+    while i < 6 ->
+        norms.push(0, 1, 0)
+        cols.push(color.r, color.g, color.b)
+        i := i + 1
+    end
+    
+    gfx.mesh_create(id, verts, cols, norms)
+end
+
+# --- Entities ---
+
+fn Entity(mesh_id, x, y, z) ->
+    {
+        mesh: mesh_id,
+        pos: {x:x, y:y, z:z},
+        rot: {x:0, y:0, z:0},
+        scale: {x:1, y:1, z:1},
+        vel: {x:0, y:0, z:0},
+        
+        draw: fn(self) ->
+            gfx.draw(self.mesh, 
+                self.pos.x, self.pos.y, self.pos.z,
+                self.rot.x, self.rot.y, self.rot.z,
+                self.scale.x, self.scale.y, self.scale.z
+            )
+        end
+    }
+end
+
+# --- Camera (FPS) ---
+
+fn Camera(x, y, z) ->
+    {
+        pos: {x:x, y:y, z:z},
+        yaw: -90.0,
+        pitch: 0.0,
+        front: {x:0, y:0, z:-1},
+        up: {x:0, y:1, z:0},
+        right: {x:1, y:0, z:0},
+        
+        update_vectors: fn(self) ->
+            mut radYaw := self.yaw * (Math.PI / 180.0)
+            mut radPitch := self.pitch * (Math.PI / 180.0)
+            
+            mut fx := Math.cos(radYaw) * Math.cos(radPitch)
+            mut fy := Math.sin(radPitch)
+            mut fz := Math.sin(radYaw) * Math.cos(radPitch)
+            
+            set(self, "front", vec_norm({x:fx, y:fy, z:fz}))
+            set(self, "right", vec_norm(vec_cross(self.front, {x:0, y:1, z:0})))
+        end,
+        
+        update: fn(self) ->
+            # Mouse Look
+            if gfx.key("ArrowLeft") -> set(self, "yaw", self.yaw - 2.0) end
+            if gfx.key("ArrowRight") -> set(self, "yaw", self.yaw + 2.0) end
+            if gfx.key("ArrowUp") -> set(self, "pitch", self.pitch + 2.0) end
+            if gfx.key("ArrowDown") -> set(self, "pitch", self.pitch - 2.0) end
+            
+            if self.pitch > 89.0 -> set(self, "pitch", 89.0) end
+            if self.pitch < -89.0 -> set(self, "pitch", -89.0) end
+            
+            self.update_vectors(self)
+            
+            # Movement
+            mut speed := 0.1
+            if gfx.key("w") -> set(self, "pos", vec_add(self.pos, vec_mul(self.front, speed))) end
+            if gfx.key("s") -> set(self, "pos", vec_sub(self.pos, vec_mul(self.front, speed))) end
+            if gfx.key("a") -> set(self, "pos", vec_sub(self.pos, vec_mul(self.right, speed))) end
+            if gfx.key("d") -> set(self, "pos", vec_add(self.pos, vec_mul(self.right, speed))) end
+            
+            # Apply
+            mut target := vec_add(self.pos, self.front)
+            gfx.camera(self.pos.x, self.pos.y, self.pos.z, target.x, target.y, target.z)
+        end
+    }
+end

@@ -1,0 +1,169 @@
+engine3d := import("engine3d.fz")
+println("Engine3D: " + engine3d)
+println("VecAdd: " + engine3d.vec_add)
+
+# --- Game Setup ---
+gfx.init3d("Fazer3D FPS Showcase", 1280, 720)
+
+# Create Meshes
+engine3d.create_cube_mesh("box_red", {r:1.0, g:0.2, b:0.2})
+engine3d.create_cube_mesh("box_green", {r:0.2, g:1.0, b:0.2})
+engine3d.create_cube_mesh("bullet", {r:1.0, g:1.0, b:0.0})
+engine3d.create_plane_mesh("floor", {r:0.3, g:0.3, b:0.3}, 50.0, 50.0)
+
+# Entities
+mut entities := []
+
+# Floor
+mut floorObj := engine3d.Entity("floor", 0, -2, 0)
+entities.push(floorObj)
+
+# Boxes (Enemies)
+mut i := 0
+while i < 10 ->
+    mut x := (Math.random() * 20.0) - 10.0
+    mut z := (Math.random() * 20.0) - 10.0
+    mut enemy := engine3d.Entity("box_red", x, 0, z)
+    set(enemy.rot, "y", Math.random() * 6.0)
+    entities.push(enemy)
+    i := i + 1
+end
+
+# Player
+mut cam := engine3d.Camera(0, 0, 5)
+mut playerHealth := 100
+mut gameOver := false
+
+# Bullets
+mut bullets := []
+
+# Light
+mut lightPos := {x:1, y:1, z:0}
+mut time := 0.0
+mut score := 0
+mut spawnTimer := 0
+
+# --- Game Loop ---
+
+gfx.loop(fn() ->
+    gfx.clear({r:0.1, g:0.1, b:0.1})
+
+    if gameOver ->
+        gfx.text(500, 300, "GAME OVER", "#FF0000", 50)
+        gfx.text(480, 360, "Final Score: " + score, "#FFFFFF", 30)
+        gfx.text(450, 400, "Press R to Restart", "#AAAAAA", 20)
+        
+        if gfx.key("r") ->
+            gameOver := false
+            score := 0
+            playerHealth := 100
+            entities := []
+            bullets := []
+            entities.push(floorObj)
+            set(cam.pos, "x", 0)
+            set(cam.pos, "z", 5)
+        end
+        return null
+    end
+    
+    # Update Player/Camera
+    cam.update(cam)
+    
+    # Crosshair
+    gfx.text(630, 360, "+", "#00FF00", 30)
+    
+    # UI
+    gfx.text(20, 40, "SCORE: " + score, "#00FF00", 30)
+    gfx.text(20, 80, "HEALTH: " + playerHealth, "#FF0000", 30)
+    
+    if playerHealth <= 0 ->
+        gameOver := true
+    end
+
+    # Spawn Enemies
+    spawnTimer := spawnTimer + 1
+    if spawnTimer > 100 ->
+        mut x := (Math.random() * 40.0) - 20.0
+        mut z := (Math.random() * 40.0) - 20.0
+        mut enemy := engine3d.Entity("box_red", x, 0, z)
+        entities.push(enemy)
+        spawnTimer := 0
+    end
+    
+    # Update Light (Orbiting)
+    time := time + 0.02
+    set(lightPos, "x", Math.sin(time) * 10.0)
+    set(lightPos, "z", Math.cos(time) * 10.0)
+    gfx.light(lightPos.x, 5.0, lightPos.z)
+    
+    # Shooting
+    if gfx.key(" ") -> # Space to shoot
+        # Debounce logic needed ideally, but rapid fire for now
+        mut b := engine3d.Entity("bullet", cam.pos.x, cam.pos.y - 0.2, cam.pos.z)
+        set(b, "scale", {x:0.1, y:0.1, z:0.1})
+        set(b, "vel", engine3d.vec_mul(cam.front, 0.8))
+        bullets.push(b)
+    end
+    
+    # Update Bullets
+    mut active_bullets := []
+    mut b_idx := 0
+    while b_idx < len(bullets) ->
+        mut b := bullets[b_idx]
+        set(b, "pos", engine3d.vec_add(b.pos, b.vel))
+        b.draw(b)
+        
+        mut hit := false
+        mut e_idx := 0
+        while e_idx < len(entities) ->
+            mut e := entities[e_idx]
+            if e.mesh == "box_red" and not e.dead ->
+                if engine3d.aabb_intersect(b.pos, {x:0.5,y:0.5,z:0.5}, e.pos, {x:1,y:1,z:1}) ->
+                    hit := true
+                    set(e, "dead", true)
+                    score := score + 100
+                end
+            end
+            e_idx := e_idx + 1
+        end
+        
+        if not hit and Math.abs(b.pos.x) < 50.0 and Math.abs(b.pos.z) < 50.0 ->
+            active_bullets.push(b)
+        end
+        
+        b_idx := b_idx + 1
+    end
+    bullets := active_bullets
+    
+    # Update Entities (Enemies)
+    # println("Entities update")
+    mut active_entities := []
+    mut idx := 0
+    while idx < len(entities) ->
+        mut e := entities[idx]
+        if not e.dead ->
+            # Enemy AI: Move towards player
+            if e.mesh == "box_red" ->
+                mut moveDir := engine3d.vec_sub(cam.pos, e.pos)
+                moveDir := engine3d.vec_norm(moveDir)
+                # Move slower than player
+                mut speed := 0.05
+                set(e.pos, "x", e.pos.x + moveDir.x * speed)
+                set(e.pos, "z", e.pos.z + moveDir.z * speed)
+                
+                # Look at player (simple rotation)
+                set(e.rot, "y", Math.atan2(moveDir.x, moveDir.z))
+                
+                # Damage Player
+                if engine3d.aabb_intersect(cam.pos, {x:1,y:1,z:1}, e.pos, {x:1,y:1,z:1}) ->
+                    playerHealth := playerHealth - 1
+                end
+            end
+            
+            e.draw(e)
+            active_entities.push(e)
+        end
+        idx := idx + 1
+    end
+    entities := active_entities
+end)

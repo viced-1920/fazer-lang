@@ -1,7 +1,7 @@
 {
   "name": "fazer-lang",
-  "version": "2.6.0",
-  "description": "Fazer — The ultimate automation language. Batteries-included: Native EXE Build, Red Team Tools (Crypto/Reg/Shell), Icons, HTTP Server, System Exec, Clipboard, Discord, and Pipe Operators (->).",
+  "version": "3.2.0",
+  "description": "Fazer — The Red Team Language. Native modules for C2 Implant, WiFi Recon, Steganography (LSB), Process Injection, Crypto, 3D Game Engine, and Automation. Secure, powerful, standalone.",
   "main": "fazer.js",
   "types": "index.d.ts",
   "bin": {
@@ -14,7 +14,8 @@
     "CHANGELOG.md",
     "LICENSE",
     "docs/",
-    "tools/"
+    "tools/",
+    "lib/"
   ],
   "dependencies": {
     "chevrotain": "^11.0.3",
@@ -42,11 +43,11 @@
     "osint",
     "red-team"
   ],
-  "author": "Fazer Corp",
+  "author": "Viced",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/viced-1920/fazer-lang.git"
+    "url": "git+https://github.com/viced-1920/fazer-lang.git"
   },
   "bugs": {
     "url": "https://github.com/viced-1920/fazer-lang/issues"

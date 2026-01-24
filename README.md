@@ -24,6 +24,13 @@ Exécuter un script :
 fazer mon_script.fz
 ```
 
+Utiliser les outils CLI (OSINT) :
+```bash
+fazer geo 8.8.8.8
+fazer scan google.com
+fazer whois microsoft.com
+```
+
 ## Création d'Exécutable (.exe)
 
 Transformez vos scripts Fazer en applications Windows portables et natives :
@@ -45,12 +52,24 @@ Documentation détaillée par section :
 *   [Guide de Démarrage](https://github.com/viced-1920/fazer-lang/blob/main/docs/getting-started.md)
 *   [Syntaxe du Langage](https://github.com/viced-1920/fazer-lang/blob/main/docs/syntax.md)
 *   [Bibliothèque Standard (Stdlib)](https://github.com/viced-1920/fazer-lang/blob/main/docs/stdlib.md)
+*   [Outils CLI (OSINT & Sys)](https://github.com/viced-1920/fazer-lang/blob/main/docs/CLI_TOOLS.md)
 *   [Exemples](https://github.com/viced-1920/fazer-lang/blob/main/docs/examples.md)
 
 ## Fonctionnalités Clés
 
 *   **GUI Native** : Créez de vraies applications Windows (WinForms) avec widgets natifs.
-*   **Red Team Ready** : Module de sécurité offensive natif (Crypto, Registre, Reverse Shell, Scan).
+*   **Red Team & Securité (v3.1)** : Suite offensive et défensive native :
+    *   **Implant** : Beacon C2 automatique, Persistance (Startup/Registry).
+    *   **Reconnaissance WiFi** : Scan réseaux, Dump mots de passe (netsh).
+    *   **Stéganographie** : Dissimulation de données dans les images (LSB pour BMP, Append pour autres).
+    *   **Injection de Code** : Injection de Shellcode via `CreateRemoteThread` (Memory Injection).
+    *   **Crypto** : AES-256, Hachage (SHA256/512), HMAC, Encodages.
+    *   **Forensics** : Dump mémoire (MiniDump), Liste processus.
+*   **Moteur 3D (v3.2)** : Moteur de jeu WebGL 2.0 complet intégré.
+    *   **Rendu** : Meshes 3D, Eclairage, Caméra FPS.
+    *   **Bibliothèque** : `engine3d` inclus pour la physique (AABB) et les mathématiques vectorielles.
+    *   **Mixte** : Overlay 2D sur scène 3D pour les interfaces utilisateur.
+*   **Stdlib Étendue** : Mathématiques, FS récursif, HTTP avancé (Headers, Proxies).
 *   **Pipe Operator (`->>`)** : Enchaînez les opérations proprement.
 *   **Pattern Matching (`case`)** : Contrôle de flux expressif.
 *   **Portable** : Compilation en `.exe` natif avec support d'icônes.

@@ -109,3 +109,34 @@ Effectue une requête HTTP asynchrone.
 res := fetch("https://api.example.com/data")
 print(res.body)
 ```
+
+### `download(url, path)`
+Télécharge un fichier depuis une URL vers un chemin local.
+```fazer
+success := download("https://example.com/image.png", "img.png")
+```
+
+## Terminal Avancé (UI & FX)
+
+Fonctionnalités pour créer des interfaces en ligne de commande (TUI) riches et animées.
+
+### Couleurs & Styles (TrueColor)
+*   `rgb(r, g, b, text)` : Texte en couleur TrueColor (16 millions de couleurs).
+*   `bg_rgb(r, g, b, text)` : Arrière-plan en couleur TrueColor.
+*   `gradient(text, r1, g1, b1, r2, g2, b2)` : Applique un dégradé linéaire sur le texte entre deux couleurs RGB.
+*   `style(text, style_name)` : Styles de base ("bold", "dim", "red", "blue", etc.).
+
+### Curseur & Affichage
+*   `term_clear()` : Efface l'écran.
+*   `term_pos(row, col)` : Déplace le curseur.
+*   `term_hide()` / `cursor_hide()` : Masque le curseur.
+*   `term_show()` / `cursor_show()` : Affiche le curseur.
+*   `term_title(text)` : Change le titre de la fenêtre du terminal.
+*   `cursor_save()` : Sauvegarde la position du curseur.
+*   `cursor_restore()` : Restaure la position sauvegardée.
+
+### Composants UI
+*   `ui_bar(val, max, width, char)` : Génère une barre de progression.
+    *   Exemple : `ui_bar(50, 100, 20)` -> `██████████          `
+*   `box(title, line1, line2, ...)` : Affiche une boîte encadrée.
+

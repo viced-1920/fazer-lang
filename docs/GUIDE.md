@@ -1,4 +1,4 @@
-# Le Guide Ultime de Fazer (A-Z) - Édition 2.5
+# Le Guide Ultime de Fazer (A-Z) - Édition 2.7
 
 Bienvenue dans l'univers de **Fazer**. Ce guide a été conçu pour vous accompagner de vos premières lignes de code jusqu'à la maîtrise des fonctionnalités les plus avancées (Pentest, GUI, Réseau).
 
@@ -15,8 +15,9 @@ Que vous soyez un débutant complet ou un développeur expérimenté, ce manuel 
 5.  [Module 5 : Manipulation de Fichiers & Système](#module-5--manipulation-de-fichiers--système)
 6.  [Module 6 : Interfaces Graphiques (GUI)](#module-6--interfaces-graphiques-gui)
 7.  [Module 7 : Réseau & Web](#module-7--réseau--web)
-8.  [Module 8 : Cybersécurité & Red Team](#module-8--cybersécurité--red-team)
-9.  [Annexe : Compiler en .EXE](#annexe--compiler-en-exe)
+8. 8.  [Module 8 : Cybersécurité & Red Team](#module-8--cybersécurité--red-team)
+9.  [Module 9 : Moteur 3D & Jeux](#module-9--moteur-3d--jeux)
+10. [Annexe : Compiler en .EXE](#annexe--compiler-en-exe)
 
 ---
 
@@ -229,12 +230,56 @@ print(page.status)
 > ⚠️ **AVERTISSEMENT** : Usage éducatif et autorisé uniquement.
 
 ### Fonctionnalités Clés
-*   **Chiffrement** : `encrypt_file("secret.txt", "clé")` (AES-256)
-*   **Registre Windows** : `registry_set`, `registry_get` (Persistance)
-*   **Reverse Shell** : `tcp_connect` (Client TCP brut)
-*   **Fond d'écran** : `set_wallpaper("hacked.jpg")`
+*   **Chiffrement** : `crypto.aes_encrypt`, `crypto.hash`, `crypto.hmac`.
+*   **Implant** : `implant.beacon(url, ms)`, `implant.persist("startup")`.
+*   **WiFi** : `wifi.scan()`, `wifi.dump("SSID")`.
+*   **Espionnage (Spy)** :
+    *   `spy.keys_start("log.txt")` : Keylogger (processus détaché).
+    *   `spy.screenshot("ecran.png")` : Capture d'écran.
+    *   `spy.clip_mon(callback)` : Surveille le presse-papier.
+*   **Stéganographie** : `steg.hide_bmp`, `steg.reveal_bmp` (LSB).
+*   **Injection** : `proc.inject(pid, shellcode)` (PowerShell/C# Bridge).
+*   **Forensics** : `sys.mem_dump(pid, file)`.
+*   **Anti-Forensics** : `self.destruct()` (Auto-destruction).
 
 *Pour un guide détaillé sur ces fonctions, consultez le fichier `PENTESTING.md`.*
+
+---
+
+## Module 9 : Moteur 3D & Jeux
+
+Fazer 3.2 intègre un moteur 3D complet (WebGL 2.0).
+
+### Démarrage Rapide
+
+```fazer
+# Importer la bibliothèque standard 3D
+engine3d := import("engine3d.fz")
+
+# Initialiser la fenêtre 3D
+gfx.init3d("Mon Jeu", 1280, 720)
+
+# Créer une caméra
+mut cam := engine3d.Camera(0, 2, 5)
+
+# Créer un cube
+engine3d.create_cube_mesh("box", {r:1, g:0, b:0})
+mut ent := engine3d.Entity("box", 0, 0, 0)
+
+fn loop() ->
+    gfx.clear({r:0.2, g:0.2, b:0.2})
+    
+    # Mettre à jour la caméra
+    cam.update(cam)
+    
+    # Dessiner l'entité
+    ent.draw(ent)
+end
+
+gfx.loop(loop)
+```
+
+Pour plus de détails, voir le [Guide Moteur 3D](3D_ENGINE.md).
 
 ---
 
