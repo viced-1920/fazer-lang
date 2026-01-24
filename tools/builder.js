@@ -70,10 +70,13 @@ const build = async function(inputFile, args) {
         }
     }
 
-    // 5. Generate Launcher (C#) with Metadata
-    log("Generating Native Launcher...");
-    
-    const launcherCs = `
+    // 5. Generate Launcher (Platform Specific)
+    const isWin = process.platform === "win32";
+    log(`Generating Launcher for ${process.platform}...`);
+
+    if (isWin) {
+        // --- WINDOWS (C# / .EXE) ---
+        const launcherCs = `
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -123,59 +126,81 @@ class Program {
         }
     }
 }
-    `;
-    
-    const csPath = path.join(distDir, 'Launcher.cs');
-    fs.writeFileSync(csPath, launcherCs);
+        `;
+        
+        const csPath = path.join(distDir, 'Launcher.cs');
+        fs.writeFileSync(csPath, launcherCs);
 
-    // 6. Compile Launcher
-    const exeName = `${appName}.exe`;
-    const exePath = path.join(distDir, exeName);
-    
-    let iconArg = "";
-    if (iconPath && fs.existsSync(iconPath)) {
-        const distIcon = path.join(distDir, 'app.ico');
-        fs.copyFileSync(iconPath, distIcon);
-        iconArg = `-Win32Icon "${distIcon}"`; 
-    }
+        const exeName = `${appName}.exe`;
+        const exePath = path.join(distDir, exeName);
+        
+        let iconArg = "";
+        if (iconPath && fs.existsSync(iconPath)) {
+            const distIcon = path.join(distDir, 'app.ico');
+            fs.copyFileSync(iconPath, distIcon);
+            iconArg = `-Win32Icon "${distIcon}"`; 
+        }
 
-    log("Compiling EXE...");
-    
-    // Using PowerShell to find CSC and compile
-    const psScript = `
-    $csc = (Get-ChildItem -Path "$env:windir\\Microsoft.NET\\Framework64\\v4*" -Filter csc.exe | Select-Object -Last 1).FullName
-    if (-not $csc) {
-        $csc = (Get-ChildItem -Path "$env:windir\\Microsoft.NET\\Framework\\v4*" -Filter csc.exe | Select-Object -Last 1).FullName
-    }
-    
-    if ($csc) {
-        Write-Host "Compiling with CSC: $csc"
-        $args = @("/target:winexe", "/out:${exePath}", "${csPath}")
-        if ("${iconArg}") { $args += "/win32icon:${path.join(distDir, 'app.ico')}" }
-        & $csc $args
+        log("Compiling EXE...");
+        
+        const psScript = `
+        $csc = (Get-ChildItem -Path "$env:windir\\Microsoft.NET\\Framework64\\v4*" -Filter csc.exe | Select-Object -Last 1).FullName
+        if (-not $csc) {
+            $csc = (Get-ChildItem -Path "$env:windir\\Microsoft.NET\\Framework\\v4*" -Filter csc.exe | Select-Object -Last 1).FullName
+        }
+        
+        if ($csc) {
+            Write-Host "Compiling with CSC: $csc"
+            $args = @("/target:winexe", "/out:${exePath}", "${csPath}")
+            if ("${iconArg}") { $args += "/win32icon:${path.join(distDir, 'app.ico')}" }
+            & $csc $args
+        } else {
+            Write-Error "CSC.exe not found. Cannot compile."
+            exit 1
+        }
+        `;
+        
+        const psBuildPath = path.join(distDir, 'build_exe.ps1');
+        fs.writeFileSync(psBuildPath, psScript);
+        
+        try {
+            execSync(`powershell -ExecutionPolicy Bypass -File "${psBuildPath}"`, { stdio: 'inherit' });
+        } catch(e) {
+            log("Compilation failed.");
+            return;
+        }
+        
+        if (fs.existsSync(exePath)) {
+            fs.unlinkSync(csPath);
+            fs.unlinkSync(psBuildPath);
+            log("Build Success!");
+            log(`Created: ${exePath}`);
+        } else {
+            error("EXE file was not created.");
+        }
+
     } else {
-        Write-Error "CSC.exe not found. Cannot compile."
-        exit 1
-    }
-    `;
-    
-    const psBuildPath = path.join(distDir, 'build_exe.ps1');
-    fs.writeFileSync(psBuildPath, psScript);
-    
-    try {
-        execSync(`powershell -ExecutionPolicy Bypass -File "${psBuildPath}"`, { stdio: 'inherit' });
-    } catch(e) {
-        log("Compilation failed.");
-        return;
-    }
-    
-    if (fs.existsSync(exePath)) {
-        fs.unlinkSync(csPath);
-        fs.unlinkSync(psBuildPath);
+        // --- LINUX / MAC (Bash Script) ---
+        
+        const launcherSh = `#!/bin/bash
+DIR="$( cd "$( dirname "\${BASH_SOURCE[0]}" )" && pwd )"
+# Use embedded node if available, else system node
+if [ -f "$DIR/node" ]; then
+    NODE="$DIR/node"
+else
+    NODE="node"
+fi
+
+"$NODE" "$DIR/fazer.js" "$DIR/app.fz" "$@"
+`;
+        
+        const shPath = path.join(distDir, appName);
+        fs.writeFileSync(shPath, launcherSh);
+        fs.chmodSync(shPath, 0o755);
+        
         log("Build Success!");
-        log(`Created: ${exePath}`);
-    } else {
-        error("EXE file was not created.");
+        log(`Created: ${shPath}`);
+        log("You can now zip the folder '${distDir}' and share it.");
     }
 };
 

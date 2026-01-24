@@ -6,6 +6,21 @@ Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer 
 
 ## Installation
 
+### Windows
+1.  Téléchargez ou clonez le dépôt.
+2.  Double-cliquez sur `install_system.ps1`.
+3.  Redémarrez votre terminal.
+
+### Linux / Mac
+1.  Téléchargez ou clonez le dépôt.
+2.  Rendez le script d'installation exécutable et lancez-le :
+    ```bash
+    chmod +x install_system.sh
+    ./install_system.sh
+    ```
+3.  Redémarrez votre terminal ou faites `source ~/.bashrc` (ou `.zshrc`).
+
+### Via NPM (Global)
 Installez Fazer globalement via npm :
 
 ```bash
@@ -31,16 +46,19 @@ fazer scan google.com
 fazer whois microsoft.com
 ```
 
-## Création d'Exécutable (.exe)
+## Création d'Exécutable (.exe / Binaire)
 
-Transformez vos scripts Fazer en applications Windows portables et natives :
+Transformez vos scripts Fazer en applications portables et natives :
 
 1.  (Optionnel) Placez une icône `app.ico` dans le dossier.
 2.  Lancez la commande de build :
     ```bash
     fazer build mon_script.fz
     ```
-3.  Récupérez votre application dans `dist/mon_script/mon_script.exe`.
+3.  Récupérez votre application dans `dist/mon_script/`.
+
+*   **Sur Windows** : Crée un fichier `.exe` autonome.
+*   **Sur Linux/Mac** : Crée un binaire exécutable (script shell + runtime).
 
 Le dossier généré est **portable** : zippez-le et envoyez-le à n'importe qui, aucune installation n'est requise !
 

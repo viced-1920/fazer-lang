@@ -283,12 +283,15 @@ Pour plus de détails, voir le [Guide Moteur 3D](3D_ENGINE.md).
 
 ---
 
-## Annexe : Compiler en .EXE
+## Annexe : Compiler en .EXE / Binaire
 
-Transformez n'importe quel script `.fz` en un exécutable Windows autonome `.exe` que vous pouvez partager.
+Transformez n'importe quel script `.fz` en un exécutable autonome que vous pouvez partager.
 
 ```bash
 fazer build mon_script.fz
 ```
 
 L'exécutable sera généré dans le dossier `dist/`. Il contient tout le nécessaire pour fonctionner sans installer Fazer sur la machine cible.
+
+*   **Windows** : Génère `mon_script.exe`.
+*   **Linux/Mac** : Génère un script de lancement `mon_script` (exécutable directement via `./mon_script`).
