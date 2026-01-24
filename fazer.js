@@ -8846,6 +8846,45 @@ async function main() {
           console.log(require("crypto").randomUUID());
       },
       
+      "compile": async (args) => {
+          if (!args[0]) return console.log(`${colors.red}Usage: fazer compile <file.fz> [-o output.fzc]${colors.reset}`);
+          const fs = require("fs");
+          const path = require("path");
+          const crypto = require("crypto");
+          
+          const inputFile = args[0];
+          if (!fs.existsSync(inputFile)) return console.error(`${colors.red}[!] File not found: ${inputFile}${colors.reset}`);
+          
+          let outputFile = inputFile.replace(/\.fz$/i, ".fzc");
+          if (args[1] === "-o" && args[2]) outputFile = args[2];
+          
+          console.log(`${colors.cyan}[*] Compiling/Encrypting ${inputFile}...${colors.reset}`);
+          
+          try {
+              const content = fs.readFileSync(inputFile, "utf8");
+              // Simple obfuscation/encryption using a hardcoded key (Security through obscurity, but sufficient for basic protection)
+              // We use AES-256-CTR with a fixed key/iv derived from a salt, or just a simple key.
+              // To make it portable, the interpreter must know the key. We'll use a hardcoded key in the interpreter.
+              const KEY = Buffer.from("46617a65724c616e675365637265743132334b6579214023", "hex"); // "FazerLangSecret123Key!@#" in hex (24 bytes) - wait, needs 32 for AES-256 or 16 for AES-128
+              // Let's use a simpler XOR-based or standard AES approach.
+              // We'll use a static key for now so any Fazer interpreter can run it.
+              const STATIC_KEY = crypto.createHash('sha256').update("FazerLangPublicRuntimeKey2026").digest();
+              const iv = crypto.randomBytes(16);
+              const cipher = crypto.createCipheriv('aes-256-cbc', STATIC_KEY, iv);
+              let encrypted = cipher.update(content, 'utf8', 'hex');
+              encrypted += cipher.final('hex');
+              
+              // File Format: FZC01[IV_HEX][ENCRYPTED_HEX]
+              const data = `FZC01${iv.toString('hex')}${encrypted}`;
+              fs.writeFileSync(outputFile, data, "utf8");
+              
+              console.log(`${colors.green}[+] Success! Compiled to: ${outputFile}${colors.reset}`);
+              console.log(`${colors.yellow}[i] You can now distribute '${outputFile}'. It can be run with 'fazer ${outputFile}' but cannot be easily read.${colors.reset}`);
+          } catch(e) {
+              console.error(`${colors.red}[!] Error: ${e.message}${colors.reset}`);
+          }
+      },
+
       // --- SYSTEM / UTILS ---
       "ls": async (args) => {
           const fs = require("fs");
@@ -9009,7 +9048,26 @@ async function main() {
     process.exit(1);
   }
 
-  const code = fs.readFileSync(filePath, "utf8");
+  let code = fs.readFileSync(filePath, "utf8");
+
+  // --- DECRYPT IF FZC ---
+  if (code.startsWith("FZC01")) {
+      try {
+          const crypto = require("crypto");
+          const STATIC_KEY = crypto.createHash('sha256').update("FazerLangPublicRuntimeKey2026").digest();
+          const iv = Buffer.from(code.substring(5, 37), 'hex');
+          const encryptedText = code.substring(37);
+          const decipher = crypto.createDecipheriv('aes-256-cbc', STATIC_KEY, iv);
+          let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+          decrypted += decipher.final('utf8');
+          code = decrypted;
+      } catch(e) {
+          console.error("Error: Failed to decrypt .fzc file. It might be corrupted or version mismatch.");
+          process.exit(1);
+      }
+  }
+  // ----------------------
+
   const lex = lexer.tokenize(code);
   if (lex.errors.length) {
     console.error("Lexer error:", lex.errors[0].message || String(lex.errors[0]));

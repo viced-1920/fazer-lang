@@ -46,6 +46,23 @@ fazer scan google.com
 fazer whois microsoft.com
 ```
 
+## Cryptage / Protection de Code
+
+Pour distribuer un script sans révéler son code source (obfuscation/cryptage) :
+
+```bash
+fazer compile mon_script.fz
+```
+
+Cela génère un fichier `mon_script.fzc` (Fazer Compiled/Crypted).
+Ce fichier est chiffré (AES-256) mais peut être exécuté directement par n'importe quel interpréteur Fazer :
+
+```bash
+fazer mon_script.fzc
+```
+
+Cela permet de partager des outils "privés" tout en gardant la portabilité du fichier.
+
 ## Création d'Exécutable (.exe / Binaire)
 
 Transformez vos scripts Fazer en applications portables et natives :

@@ -1,6 +1,6 @@
 {
   "name": "fazer-lang",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "Fazer — The Red Team Language. Native modules for C2 Implant, WiFi Recon, Steganography (LSB), Process Injection, Crypto, 3D Game Engine, and Automation. Secure, powerful, standalone.",
   "main": "fazer.js",
   "types": "index.d.ts",
