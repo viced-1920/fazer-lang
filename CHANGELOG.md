@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.1] - 2026-01-25
+
+### Added
+- **Cross-Platform**: Added `install_system.sh` for easy installation on Linux and macOS.
+- **Build System**: Updated `fazer build` to support Linux/Mac targets (generates portable bash launcher).
+- **Examples**: Added `VoidNet.fz`, a stylish TCP console application with ASCII art.
+
+### Changed
+- **Documentation**: Updated `README.md` and `docs/GUIDE.md` with cross-platform installation instructions.
+
 ## [3.2.0] - 2026-01-24
 
 ### Added

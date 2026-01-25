@@ -28,7 +28,13 @@ Fazer est un langage de programmation moderne, simple et puissant. Il est "batte
 
 ### Installation
 1.  **Téléchargez** le dossier `fazer-lang`.
-2.  **Exécutez** le script `install_system.ps1` (double-clic).
+2.  **Installation** :
+    *   **Windows** : Exécutez `install_system.ps1` (double-clic).
+    *   **Linux / Mac** : Ouvrez un terminal et lancez :
+        ```bash
+        chmod +x install_system.sh
+        ./install_system.sh
+        ```
 3.  C'est tout ! Ouvrez un terminal et tapez `fazer` pour vérifier.
 
 ### Votre Premier Script ("Hello World")

@@ -2,7 +2,7 @@
 "use strict";
 
 /*
-  Fazer v2 — interpreter "batteries included"
+  Fazer v3.3 — interpreter "batteries included"
   - Chevrotain lexer/parser → AST
   - Runtime with scopes, functions, pipes, lists/maps, property/index access
   - Stdlib: fs/path/crypto/encoding/ui
@@ -4962,6 +4962,20 @@ const ASCII_FONTS = {
 
       // [GFX] Native Game & App Engine (No HTML required)
       Math: Math,
+
+      // [STR] String Manipulation
+      str_split: (s, sep) => String(s).split(sep),
+      str_sub: (s, start, end) => String(s).substring(start, end),
+      str_replace: (s, a, b) => String(s).split(a).join(b),
+      str_trim: (s) => String(s).trim(),
+      str_len: (s) => String(s).length,
+      str_lower: (s) => String(s).toLowerCase(),
+      str_upper: (s) => String(s).toUpperCase(),
+      str_contains: (s, sub) => String(s).includes(sub),
+      str_starts: (s, sub) => String(s).startsWith(sub),
+      str_ends: (s, sub) => String(s).endsWith(sub),
+      str_index: (s, sub) => String(s).indexOf(sub),
+
       gfx: {
           _width: 800,
           _height: 600,
@@ -5368,8 +5382,23 @@ const ASCII_FONTS = {
 
             queue.forEach(cmd => {
                 if (cmd.op === 'clear') {
-                    // Parse hex color if needed, for now just black/grey
-                    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+                    // Parse hex color or object
+                    let r = 0.1, g = 0.1, b = 0.1;
+                    if (cmd.color) {
+                        if (typeof cmd.color === 'string') {
+                            if (cmd.color.startsWith('#')) {
+                                const hex = cmd.color.substring(1);
+                                r = parseInt(hex.substring(0,2), 16)/255;
+                                g = parseInt(hex.substring(2,4), 16)/255;
+                                b = parseInt(hex.substring(4,6), 16)/255;
+                            }
+                        } else if (typeof cmd.color === 'object') {
+                            r = cmd.color.r !== undefined ? cmd.color.r : 0.1;
+                            g = cmd.color.g !== undefined ? cmd.color.g : 0.1;
+                            b = cmd.color.b !== undefined ? cmd.color.b : 0.1;
+                        }
+                    }
+                    gl.clearColor(r, g, b, 1.0);
                     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                     
                     // Clear Overlay
@@ -5377,6 +5406,24 @@ const ASCII_FONTS = {
                     
                     // Update Matrices
                     Mat4.perspective(state.P, 45 * Math.PI / 180, canvas.width/canvas.height, 0.1, 1000.0);
+                }
+                else if (cmd.op === 'rect') {
+                     ctx.fillStyle = cmd.color;
+                     ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
+                }
+                else if (cmd.op === 'circle') {
+                     ctx.beginPath();
+                     ctx.arc(cmd.x, cmd.y, cmd.r, 0, Math.PI * 2);
+                     ctx.fillStyle = cmd.color;
+                     ctx.fill();
+                }
+                else if (cmd.op === 'line') {
+                     ctx.beginPath();
+                     ctx.moveTo(cmd.x1, cmd.y1);
+                     ctx.lineTo(cmd.x2, cmd.y2);
+                     ctx.strokeStyle = cmd.color;
+                     ctx.lineWidth = cmd.width || 1;
+                     ctx.stroke();
                 }
                 else if (cmd.op === 'text') {
                     ctx.font = (cmd.size || 20) + 'px monospace';
@@ -5536,10 +5583,7 @@ Add-Type -TypeDefinition $code -Language CCSharp
           },
           
           // Process Manipulation
-          kill: (pid) => {
-              try { process.kill(Number(pid)); return true; } catch(e) { return false; }
-          },
-
+          
           // Administrator Check
           is_admin: () => {
               try {
@@ -5551,6 +5595,33 @@ Add-Type -TypeDefinition $code -Language CCSharp
 
       // [NET] Advanced Network Operations
       net: {
+          // TCP Listener
+          listen: (port, on_connect) => {
+              const net = require("net");
+              const server = net.createServer(async (socket) => {
+                  const client = {
+                      ip: socket.remoteAddress,
+                      send: (d) => { try { socket.write(String(d)); return true; } catch(e){ return false; } },
+                      close: () => socket.destroy(),
+                      on_data: (fn) => {
+                          socket.on('data', async (d) => {
+                              if (fn && fn.__fnref__) await this._call(fn, [d.toString()], this.global);
+                          });
+                      }
+                  };
+                  if (on_connect && on_connect.__fnref__) {
+                      await this._call(on_connect, [client], this.global);
+                  }
+              });
+              
+              server.on('error', (e) => console.error("Net Error:", e.message));
+              server.listen(Number(port));
+              
+              return {
+                  close: () => server.close()
+              };
+          },
+
           // Socket Connect / Port Scan
           connect: async (host, port, timeout=2000) => {
              return new Promise(resolve => {
@@ -5561,6 +5632,31 @@ Add-Type -TypeDefinition $code -Language CCSharp
                  socket.on('error', (e) => { socket.destroy(); resolve(false); });
                  socket.connect(Number(port), String(host));
              });
+          },
+
+          // Persistent TCP Client (Reverse Shell / C2)
+          tcp_connect: (host, port, on_connect) => {
+              const net = require("net");
+              const socket = new net.Socket();
+              
+              const client = {
+                  send: (d) => { try { socket.write(String(d)); return true; } catch(e){ return false; } },
+                  close: () => socket.destroy(),
+                  on_data: (fn) => {
+                       socket.on('data', async (d) => {
+                           if (fn && fn.__fnref__) await this._call(fn, [d.toString()], this.global);
+                       });
+                  }
+              };
+              
+              socket.connect(Number(port), String(host), async () => {
+                  if (on_connect && on_connect.__fnref__) {
+                      await this._call(on_connect, [client], this.global);
+                  }
+              });
+              
+              socket.on('error', (e) => console.error("TCP Client Error:", e.message));
+              return client;
           },
           
           // Get Public IP (External)
@@ -5613,152 +5709,16 @@ Add-Type -TypeDefinition $code -Language CCSharp
       },
 
 
-      // ──────────────────────────────────────────────────────────────────────────
-      // FAZER SECURITY & INNOVATION SUITE (v3.0)
-      // ──────────────────────────────────────────────────────────────────────────
 
-      // [SYS] System & DLL Manipulation
-      sys: {
-          // PowerShell Bridge (The Core)
-          ps: (script) => {
-              try {
-                  const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ${String(script).replace(/"/g, '\"')} }"`;
-                  return require("child_process").execSync(cmd, { encoding: 'utf8', maxBuffer: 1024*1024*50 }).trim();
-              } catch(e) { return "Error: " + e.message; }
-          },
-          
-          ps_json: (script) => {
-             try {
-                 const s = String(script).replace(/"/g, '\"');
-                 const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ${s} } | ConvertTo-Json -Depth 2 -Compress"`;
-                 const out = require("child_process").execSync(cmd, { encoding: 'utf8', maxBuffer: 1024*1024*50 }).trim();
-                 return JSON.parse(out);
-             } catch(e) { return null; }
-          },
-
-          // DLL / Assembly Loading & Execution
-          dll_load: (path) => {
-              // Loads a DLL into the current PS session context (simulated via static calls for now)
-              // Since each sys.ps call is a new process, we need a way to persist or use a single session.
-              // For now, we provide a helper to generate the loading script snippet.
-              return `[System.Reflection.Assembly]::LoadFrom("${String(path).replace(/\\/g, '\\\\')}");`;
-          },
-          
-          // Native Memory Forensic (Read Process Memory)
-          mem_dump: (pid, outputFile) => {
-              // Uses MiniDumpWriteDump via P/Invoke in PowerShell
-              const ps = `
-$code = @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using System.IO;
-
-public class MiniDump {
-    [DllImport("dbghelp.dll", EntryPoint = "MiniDumpWriteDump", CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
-    public static extern bool MiniDumpWriteDump(IntPtr hProcess, uint processId, SafeHandle hFile, uint dumpType, IntPtr exceptionParam, IntPtr userStreamParam, IntPtr callbackParam);
-
-    public static void Dump(int pid, string filename) {
-        Process target = Process.GetProcessById(pid);
-        using (FileStream fs = new FileStream(filename, FileMode.Create, FileAccess.ReadWrite, FileShare.Write)) {
-            MiniDumpWriteDump(target.Handle, (uint)target.Id, fs.SafeFileHandle, 2, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-        }
-    }
-}
-"@
-Add-Type -TypeDefinition $code -Language CCSharp
-[MiniDump]::Dump(${Number(pid)}, "${String(outputFile)}")
-"Done"
-`;
-              try {
-                  require("child_process").execSync(`powershell -NoProfile -Command "${ps.replace(/"/g, '\"')}"`);
-                  return true;
-              } catch(e) { return false; }
-          },
-          
-          // Administrator Check
-          is_admin: () => {
-              try {
-                  const out = require("child_process").execSync('powershell -Command "([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"', { encoding: 'utf8' }).trim();
-                  return out === "True";
-              } catch(e) { return false; }
-          },
-          
-          // System Info
-          pid: () => process.pid,
-          arch: () => process.arch,
-          platform: () => process.platform,
-      },
-
-      // [NET] Advanced Network Operations
-      net: {
-          // Socket Connect / Port Scan
-          connect: async (host, port, timeout=2000) => {
-             return new Promise(resolve => {
-                 const socket = new (require("net").Socket)();
-                 socket.setTimeout(Number(timeout));
-                 socket.on('connect', () => { socket.destroy(); resolve(true); });
-                 socket.on('timeout', () => { socket.destroy(); resolve(false); });
-                 socket.on('error', (e) => { socket.destroy(); resolve(false); });
-                 socket.connect(Number(port), String(host));
-             });
-          },
-          
-          // Get Public IP (External)
-          public_ip: async () => {
-              try {
-                  const res = await builtins.fetch("https://api.ipify.org");
-                  return res.body;
-              } catch(e) { return "0.0.0.0"; }
-          },
-          
-          // DNS Lookup
-          dns: async (domain) => {
-             const dns = require("dns").promises;
-             try { return await dns.resolve(String(domain)); } catch(e) { return []; }
-          },
-          
-          // Network Interfaces
-          interfaces: () => require("os").networkInterfaces()
-      },
-
-      // [OSINT] Open Source Intelligence Tools
-      osint: {
-          // Whois Query
-          whois: async (domain) => {
-              return new Promise(resolve => {
-                  const client = require("net").createConnection(43, "whois.iana.org", () => {
-                      client.write(domain + "\r\n");
-                  });
-                  let data = "";
-                  client.on("data", (chunk) => data += chunk);
-                  client.on("end", () => resolve(data));
-                  client.on("error", (err) => resolve("Error: " + err.message));
-              });
-          },
-          
-          // Google Dorking Helper (Generates URL)
-          dork_url: (query) => {
-              return "https://www.google.com/search?q=" + encodeURIComponent(String(query));
-          },
-          
-          // User Agent Generator
-          ua: () => {
-              const agents = [
-                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
-                  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
-              ];
-              return agents[Math.floor(Math.random() * agents.length)];
-          }
-      },
 
       fs: {
           read: (path) => { try { return require('fs').readFileSync(String(path), 'utf8'); } catch(e) { return null; } },
           write: (path, data) => { try { require('fs').writeFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
           append: (path, data) => { try { require('fs').appendFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
           exists: (path) => require('fs').existsSync(String(path)),
-          mkdir: (path) => { try { require('fs').mkdirSync(String(path), {recursive:true}); return true; } catch(e) { return false; } }
+          mkdir: (path) => { try { require('fs').mkdirSync(String(path), {recursive:true}); return true; } catch(e) { return false; } },
+          list: (path) => { try { return require('fs').readdirSync(String(path)); } catch(e) { return []; } },
+          delete: (path) => { try { require('fs').rmSync(String(path), {recursive:true, force:true}); return true; } catch(e) { return false; } }
       },
 
       // [WEBVIEW] Modern HTML/CSS UI
@@ -6010,9 +5970,9 @@ ascii_art: (text, fontName) => {
           await rt.run(ast);
           
           const exports = {};
-          console.log("Exporting vars from module...");
+          // console.log("Exporting vars from module...");
           for (const [k, v] of rt.global.vars) {
-              console.log("Exporting:", k, v);
+              // console.log("Exporting:", k, v);
               if (k === "__builtins__" || builtins[k]) continue; 
               
               let value = v.value;
@@ -6451,9 +6411,24 @@ $results | ConvertTo-Json -Compress
         }
       },
       
-      server: (port, handlerName) => {
-        // This old implementation is deprecated/removed in favor of the async one below
-        throw new FazerError("This server signature is deprecated. Use server(port, router_obj).");
+      http_server: (port, handler) => {
+          const http = require('http');
+          const server = http.createServer(async (req, res) => {
+              if (handler && handler.__fnref__) {
+                  const result = await this._call(handler, [{
+                      method: req.method,
+                      url: req.url,
+                      headers: req.headers
+                  }], this.global);
+                  
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end(String(result));
+              } else {
+                  res.end("Fazer Server Running");
+              }
+          });
+          server.listen(Number(port));
+          console.log(`HTTP Server running on port ${port}`);
       },
 
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Number(ms))),
