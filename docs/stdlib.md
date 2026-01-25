@@ -52,16 +52,75 @@ if fs_exists("data") -> ... end
 *   `int(n)` : Conversion en entier.
 *   `float(n)` : Conversion en flottant.
 
+### `net.tcp_client(host, port, onData)`
+Crée un client TCP brut.
+```fazer
+net.tcp_client("127.0.0.1", 9000, fn(data, api) ->
+    print("Reçu: " + data)
+    api.write("Réponse")
+    api.close()
+end)
+```
+
+### `net.udp_socket(port, onMsg)`
+Crée un socket UDP (Serveur si port > 0, Client si port = 0).
+```fazer
+# Serveur UDP
+server := net.udp_socket(5140, fn(msg, info) ->
+    print("De " + info.address + ": " + msg)
+end)
+
+# Client UDP
+client := net.udp_socket(0, null)
+client.send("Log message", "127.0.0.1", 5140)
+```
+
 ## Base de Données (db)
 
-### `db(path)`
-Crée ou charge une base de données JSON persistante.
+Une base de données JSON NoSQL légère et intégrée.
+
+### `db.open(path)`
+Charge ou crée une base de données.
 ```fazer
-store := db("data.json")
-store.set("key", "value")
-val := store.get("key")
-data := store.all()
+db.open("users.json")
 ```
+
+### Manipulation
+*   `db.set(key, value)` : Enregistre une valeur.
+*   `db.get(key)` : Récupère une valeur.
+*   `db.delete(key)` : Supprime une clé.
+*   `db.save()` : Sauvegarde les changements sur le disque.
+*   `db.push(key, item)` : Ajoute un élément à une liste.
+*   `db.keys()` : Liste toutes les clés.
+
+## Planificateur (sched)
+
+Pour l'automatisation et les tâches récurrentes.
+
+### `sched.every(ms, fn)`
+Exécute une fonction en boucle.
+```fazer
+id := sched.every(1000, fn() -> print("Tick") end)
+```
+
+### `sched.after(ms, fn)`
+Exécute une fonction une fois après un délai.
+```fazer
+sched.after(5000, fn() -> print("Boom") end)
+```
+
+### `sched.cancel(id)`
+Annule une tâche planifiée.
+
+## Physique & Math (phys)
+
+Helpers pour le développement de jeux.
+
+*   `phys.dist(x1, y1, x2, y2)` : Distance entre deux points.
+*   `phys.angle(x1, y1, x2, y2)` : Angle en radians.
+*   `phys.clamp(val, min, max)` : Contraint une valeur.
+*   `phys.lerp(a, b, t)` : Interpolation linéaire.
+*   `phys.aabb(rect1, rect2)` : Collision AABB (x, y, w, h).
 
 ## Automation & Système
 

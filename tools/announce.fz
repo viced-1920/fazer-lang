@@ -1,5 +1,5 @@
 // tools/announce.fz
-webhook := "https://canary.discord.com/api/webhooks/1463728147202838652/vEd4MqqtYmAFg15GKX3FBxLYS1XImycormdOMwTa3Dbwcm6r8lYI3dfIWlZiLH2Dxq9e"
+webhook := "YOUR_WEBHOOK_URL_HERE"
 
 fn send(title, desc, color) ->
   payload := {

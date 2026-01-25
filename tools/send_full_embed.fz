@@ -1,11 +1,10 @@
-webhook := "https://canary.discord.com/api/webhooks/1463728147202838652/vEd4MqqtYmAFg15GKX3FBxLYS1XImycormdOMwTa3Dbwcm6r8lYI3dfIWlZiLH2Dxq9e"
+webhook := "YOUR_WEBHOOK_URL_HERE"
 
 print("Lecture du fichier announce_embed.json...")
 raw_json := fs_read("announce_embed.json")
 
 if raw_json == null ->
     print("Erreur: Impossible de lire announce_embed.json")
-    # exit? no exit builtin yet, just stop
 end
 else ->
     embed_data := json_parse(raw_json)
@@ -15,9 +14,6 @@ else ->
     }
     
     print("Envoi du payload vers Discord...")
-    
-    # Debug: print payload to be sure
-    # print(json_stringify(payload))
     
     res := http_req(webhook, {
         "method": "POST",

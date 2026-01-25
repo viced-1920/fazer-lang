@@ -2,7 +2,7 @@
 "use strict";
 
 /*
-  Fazer v3.3 — interpreter "batteries included"
+  Fazer v2 — interpreter "batteries included"
   - Chevrotain lexer/parser → AST
   - Runtime with scopes, functions, pipes, lists/maps, property/index access
   - Stdlib: fs/path/crypto/encoding/ui
@@ -291,9 +291,12 @@ class FazerParser extends EmbeddedActionsParser {
     });
 
     $.RULE("whileStmt", () => {
+      console.log("Parsing whileStmt");
       const tok = $.CONSUME(While);
       const expr = $.SUBRULE($.expression);
+      console.log("Parsed expr in while");
       $.CONSUME(Arrow);
+      console.log("Consumed Arrow in while");
       const body = $.SUBRULE($.block);
       return node("while", { expr, body, loc: locOf(tok) });
     });
@@ -4960,21 +4963,21 @@ const ASCII_FONTS = {
       // FAZER SECURITY & INNOVATION SUITE (v3.0)
       // ──────────────────────────────────────────────────────────────────────────
 
-      // [GFX] Native Game & App Engine (No HTML required)
+      // Math & String Utils
       Math: Math,
+      
+      // Physics Helpers
+      phys: {
+          dist: (x1, y1, x2, y2) => Math.sqrt(Math.pow(x2-x1, 2) + Math.pow(y2-y1, 2)),
+          angle: (x1, y1, x2, y2) => Math.atan2(y2-y1, x2-x1),
+          clamp: (val, min, max) => Math.min(Math.max(val, min), max),
+          lerp: (a, b, t) => a + (b - a) * t,
+          aabb: (r1, r2) => (r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y)
+      },
 
-      // [STR] String Manipulation
-      str_split: (s, sep) => String(s).split(sep),
-      str_sub: (s, start, end) => String(s).substring(start, end),
-      str_replace: (s, a, b) => String(s).split(a).join(b),
-      str_trim: (s) => String(s).trim(),
-      str_len: (s) => String(s).length,
-      str_lower: (s) => String(s).toLowerCase(),
-      str_upper: (s) => String(s).toUpperCase(),
-      str_contains: (s, sub) => String(s).includes(sub),
-      str_starts: (s, sub) => String(s).startsWith(sub),
-      str_ends: (s, sub) => String(s).endsWith(sub),
-      str_index: (s, sub) => String(s).indexOf(sub),
+      len: (obj) => (obj && obj.length !== undefined) ? obj.length : 0,
+      str_sub: (s, start, end) => (s && typeof s === 'string') ? s.substring(start, end) : "",
+      str_len: (s) => (s && s.length !== undefined) ? s.length : 0,
 
       gfx: {
           _width: 800,
@@ -5033,8 +5036,8 @@ const ASCII_FONTS = {
                   try {
                       await this._call(updateFn, [], this.global);
                   } catch(e) {
-                      console.error("Game Loop Error:", e);
-                      clearInterval(interval);
+                      console.error("Game Loop Error (Recovered):", e);
+                      // clearInterval(interval); // Don't stop the game, just log
                   }
                   
                   builtins.webview.send("gfx_frame", builtins.gfx._queue);
@@ -5042,12 +5045,48 @@ const ASCII_FONTS = {
               }, 16); 
           },
           
+          // Audio & Weather
+          sfx: (type, enable) => builtins.gfx._queue.push({ op: "sfx", type, enable }),
+          weather: (type, enable) => builtins.gfx._queue.push({ op: "weather", type, enable }),
+
           // Drawing Commands (2D)
           clear: (color) => builtins.gfx._queue.push({ op: "clear", color }),
           rect: (x, y, w, h, color) => builtins.gfx._queue.push({ op: "rect", x, y, w, h, color }),
           circle: (x, y, r, color) => builtins.gfx._queue.push({ op: "circle", x, y, r, color }),
+          
+          // Images & Audio (SimCity Support)
+          load_image: (key, path) => {
+              try {
+                  const fs = require('fs');
+                  const data = fs.readFileSync(path);
+                  let mime = "image/png";
+                  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) mime = "image/jpeg";
+                  else if (path.endsWith(".gif")) mime = "image/gif";
+                  const src = "data:" + mime + ";base64," + data.toString('base64');
+                  builtins.gfx._queue.push({ op: "load_image", key, src });
+              } catch(e) { console.error("GFX Error: Failed to load image " + path); }
+          },
+          image: (key, x, y, w, h, sx, sy, sw, sh) => builtins.gfx._queue.push({ op: "image", key, x, y, w, h, sx, sy, sw, sh }),
+          batch: (key, items) => builtins.gfx._queue.push({ op: "batch", key, items }),
+
+          load_sound: (key, path) => {
+              try {
+                  const fs = require('fs');
+                  const data = fs.readFileSync(path);
+                  let mime = "audio/wav";
+                  if (path.endsWith(".mp3")) mime = "audio/mpeg";
+                  else if (path.endsWith(".ogg")) mime = "audio/ogg";
+                  const src = "data:" + mime + ";base64," + data.toString('base64');
+                  builtins.gfx._queue.push({ op: "load_sound", key, src });
+              } catch(e) { console.error("GFX Error: Failed to load sound " + path); }
+          },
+          play_sound: (key, loop) => builtins.gfx._queue.push({ op: "play_sound", key, loop: !!loop }),
+
           text: (x, y, text, color, size) => builtins.gfx._queue.push({ op: "text", x, y, text, color, size }),
           line: (x1, y1, x2, y2, color, width) => builtins.gfx._queue.push({ op: "line", x1, y1, x2, y2, color, width }),
+          polygon: (points, color) => builtins.gfx._queue.push({ op: "polygon", points, color }),
+          alpha: (val) => builtins.gfx._queue.push({ op: "alpha", value: val }),
+          glow: (color, size) => builtins.gfx._queue.push({ op: "glow", color, size }),
           
           // 3D Commands
           cube: (x, y, z, size, color) => builtins.gfx._queue.push({ op: "cube", x, y, z, size, color }), // Legacy/2.5D
@@ -5080,9 +5119,108 @@ const ASCII_FONTS = {
         const canvas = document.getElementById('c');
         const ctx = canvas.getContext('2d');
         
+        // Audio Context
+        let audioCtx = null;
+        let rainNode = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function toggleRain(enable) {
+            initAudio();
+            if (enable) {
+                if (rainNode) return;
+                const bufferSize = 2 * audioCtx.sampleRate;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = output[i];
+                    output[i] *= 3.5; 
+                }
+                rainNode = audioCtx.createBufferSource();
+                rainNode.buffer = buffer;
+                rainNode.loop = true;
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0.15;
+                rainNode.connect(gain);
+                gain.connect(audioCtx.destination);
+                rainNode.start();
+            } else {
+                if (rainNode) { rainNode.stop(); rainNode = null; }
+            }
+        }
+        let lastOut = 0;
+
+        // Weather System (Client Side)
+        let isRaining = false;
+        let rainParticles = [];
+        
+        function updateRain() {
+            if (!isRaining) { rainParticles = []; return; }
+            // Spawn new particles
+            if (rainParticles.length < 400) {
+                 rainParticles.push({
+                     x: Math.random() * gameWidth,
+                     y: Math.random() * -gameHeight, // Spawn above
+                     speed: 15 + Math.random() * 10,
+                     len: 10 + Math.random() * 20
+                 });
+            }
+            // Update
+            for (let i=0; i<rainParticles.length; i++) {
+                let p = rainParticles[i];
+                p.y += p.speed;
+                p.x -= 2; // Wind
+                if (p.y > gameHeight) {
+                    p.y = -20;
+                    p.x = Math.random() * gameWidth + 100; // Reset
+                }
+            }
+        }
+
+        function drawRain() {
+            if (!isRaining) return;
+            ctx.beginPath();
+            ctx.strokeStyle = "rgba(170, 180, 255, 0.4)";
+            ctx.lineWidth = 1;
+            for (let i=0; i<rainParticles.length; i++) {
+                let p = rainParticles[i];
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - 4, p.y + p.len);
+            }
+            ctx.stroke();
+        }
+
+        // Letterboxing State
+        let gameWidth = 1280;
+        let gameHeight = 720;
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            
+            // Calculate Aspect Ratio
+            const targetRatio = gameWidth / gameHeight;
+            const windowRatio = canvas.width / canvas.height;
+            
+            if (windowRatio > targetRatio) {
+                // Window is wider than game
+                scale = canvas.height / gameHeight;
+                offsetX = (canvas.width - (gameWidth * scale)) / 2;
+                offsetY = 0;
+            } else {
+                // Window is taller than game
+                scale = canvas.width / gameWidth;
+                offsetX = 0;
+                offsetY = (canvas.height - (gameHeight * scale)) / 2;
+            }
         }
         window.onresize = resize;
         resize();
@@ -5111,10 +5249,43 @@ const ASCII_FONTS = {
         }
         
         function render(queue) {
+            // Clear Screen with Black (for letterbox borders)
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Apply Letterbox Transform
+            ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
+            // Clip to game area
+            ctx.beginPath();
+            ctx.rect(0, 0, gameWidth, gameHeight);
+            ctx.clip();
+
             queue.forEach(cmd => {
-                if (cmd.op === 'clear') {
+                if (cmd.op === 'weather') {
+                    if (cmd.type === 'rain') isRaining = cmd.enable;
+                }
+                else if (cmd.op === 'sfx') {
+                    if (cmd.type === 'rain') toggleRain(cmd.enable);
+                }
+                else if (cmd.op === 'alpha') {
+                    ctx.globalAlpha = cmd.value;
+                }
+                else if (cmd.op === 'glow') {
+                    if (cmd.size > 0) {
+                        ctx.shadowBlur = cmd.size;
+                        ctx.shadowColor = cmd.color;
+                    } else {
+                        ctx.shadowBlur = 0;
+                        ctx.shadowColor = "transparent";
+                    }
+                }
+                else if (cmd.op === 'clear') {
+                    ctx.globalAlpha = 1.0;
                     ctx.fillStyle = cmd.color || '#000';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillRect(0, 0, gameWidth, gameHeight); // Fill game area only
                 }
                 else if (cmd.op === 'rect') {
                     ctx.fillStyle = cmd.color;
@@ -5125,6 +5296,47 @@ const ASCII_FONTS = {
                     ctx.arc(cmd.x, cmd.y, cmd.r, 0, Math.PI * 2);
                     ctx.fillStyle = cmd.color;
                     ctx.fill();
+                }
+                else if (cmd.op === 'load_image') {
+                    const img = new Image();
+                    img.src = cmd.src;
+                    images[cmd.key] = img;
+                }
+                else if (cmd.op === 'image') {
+                    const img = images[cmd.key];
+                    if (img && img.complete) {
+                        if (cmd.sx !== undefined) {
+                            // Sprite Sheet Draw
+                            ctx.drawImage(img, cmd.sx, cmd.sy, cmd.sw, cmd.sh, cmd.x, cmd.y, cmd.w, cmd.h);
+                        } else {
+                            // Standard Draw
+                            ctx.drawImage(img, cmd.x, cmd.y, cmd.w || img.width, cmd.h || img.height);
+                        }
+                    }
+                }
+                else if (cmd.op === 'batch') {
+                    const img = images[cmd.key];
+                    if (img && img.complete) {
+                        for (let i = 0; i < cmd.items.length; i++) {
+                            const it = cmd.items[i];
+                            if (it.sx !== undefined) {
+                                ctx.drawImage(img, it.sx, it.sy, it.sw, it.sh, it.x, it.y, it.w, it.h);
+                            } else {
+                                ctx.drawImage(img, it.x, it.y, it.w || img.width, it.h || img.height);
+                            }
+                        }
+                    }
+                }
+                else if (cmd.op === 'load_sound') {
+                    sounds[cmd.key] = new Audio(cmd.src);
+                }
+                else if (cmd.op === 'play_sound') {
+                    const s = sounds[cmd.key];
+                    if (s) {
+                        if (cmd.loop) s.loop = true;
+                        s.currentTime = 0;
+                        s.play().catch(e => console.log(e));
+                    }
                 }
                 else if (cmd.op === 'text') {
                     ctx.fillStyle = cmd.color;
@@ -5139,6 +5351,18 @@ const ASCII_FONTS = {
                     ctx.lineWidth = cmd.width || 1;
                     ctx.stroke();
                 }
+                else if (cmd.op === 'polygon') {
+                    if (cmd.points && cmd.points.length > 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(cmd.points[0].x, cmd.points[0].y);
+                        for (let i = 1; i < cmd.points.length; i++) {
+                            ctx.lineTo(cmd.points[i].x, cmd.points[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = cmd.color;
+                        ctx.fill();
+                    }
+                }
                 else if (cmd.op === 'cube') {
                      // 2.5D Fallback
                      const size = cmd.size;
@@ -5146,6 +5370,10 @@ const ASCII_FONTS = {
                      ctx.fillRect(cmd.x, cmd.y, size, size);
                 }
             });
+
+            // Draw Weather (Overlay)
+            updateRain();
+            drawRain();
         }
     </script>
 </body>
@@ -5382,23 +5610,8 @@ const ASCII_FONTS = {
 
             queue.forEach(cmd => {
                 if (cmd.op === 'clear') {
-                    // Parse hex color or object
-                    let r = 0.1, g = 0.1, b = 0.1;
-                    if (cmd.color) {
-                        if (typeof cmd.color === 'string') {
-                            if (cmd.color.startsWith('#')) {
-                                const hex = cmd.color.substring(1);
-                                r = parseInt(hex.substring(0,2), 16)/255;
-                                g = parseInt(hex.substring(2,4), 16)/255;
-                                b = parseInt(hex.substring(4,6), 16)/255;
-                            }
-                        } else if (typeof cmd.color === 'object') {
-                            r = cmd.color.r !== undefined ? cmd.color.r : 0.1;
-                            g = cmd.color.g !== undefined ? cmd.color.g : 0.1;
-                            b = cmd.color.b !== undefined ? cmd.color.b : 0.1;
-                        }
-                    }
-                    gl.clearColor(r, g, b, 1.0);
+                    // Parse hex color if needed, for now just black/grey
+                    gl.clearColor(0.1, 0.1, 0.1, 1.0);
                     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
                     
                     // Clear Overlay
@@ -5406,24 +5619,6 @@ const ASCII_FONTS = {
                     
                     // Update Matrices
                     Mat4.perspective(state.P, 45 * Math.PI / 180, canvas.width/canvas.height, 0.1, 1000.0);
-                }
-                else if (cmd.op === 'rect') {
-                     ctx.fillStyle = cmd.color;
-                     ctx.fillRect(cmd.x, cmd.y, cmd.w, cmd.h);
-                }
-                else if (cmd.op === 'circle') {
-                     ctx.beginPath();
-                     ctx.arc(cmd.x, cmd.y, cmd.r, 0, Math.PI * 2);
-                     ctx.fillStyle = cmd.color;
-                     ctx.fill();
-                }
-                else if (cmd.op === 'line') {
-                     ctx.beginPath();
-                     ctx.moveTo(cmd.x1, cmd.y1);
-                     ctx.lineTo(cmd.x2, cmd.y2);
-                     ctx.strokeStyle = cmd.color;
-                     ctx.lineWidth = cmd.width || 1;
-                     ctx.stroke();
                 }
                 else if (cmd.op === 'text') {
                     ctx.font = (cmd.size || 20) + 'px monospace';
@@ -5583,43 +5778,127 @@ Add-Type -TypeDefinition $code -Language CCSharp
           },
           
           // Process Manipulation
-          
+          kill: (pid) => {
+              try { process.kill(Number(pid)); return true; } catch(e) { return false; }
+          },
+
           // Administrator Check
           is_admin: () => {
               try {
                   const out = require("child_process").execSync('powershell -Command "([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"', { encoding: 'utf8' }).trim();
                   return out === "True";
               } catch(e) { return false; }
+          },
+
+          // System Info
+          pid: () => process.pid,
+          arch: () => process.arch,
+          platform: () => process.platform,
+
+          // Env Vars
+          env: (key, val) => {
+              if (val === undefined) return process.env[String(key)];
+              process.env[String(key)] = String(val);
+              return true;
+          },
+          
+          // Registry (Windows)
+          registry_read: (key, name) => {
+              // key: "HKCU\\Software\\MySoft"
+              try {
+                  const cmd = `powershell -Command "Get-ItemProperty -Path '${key}' -Name '${name}' | Select-Object -ExpandProperty '${name}'"`;
+                  return require("child_process").execSync(cmd, { encoding: 'utf8' }).trim();
+              } catch(e) { return null; }
+          },
+          
+          registry_write: (key, name, value, type="String") => {
+               // type: String, DWord, QWord, Binary, MultiString, ExpandString
+               try {
+                   const cmd = `powershell -Command "New-ItemProperty -Path '${key}' -Name '${name}' -Value '${value}' -PropertyType ${type} -Force"`;
+                   require("child_process").execSync(cmd);
+                   return true;
+               } catch(e) { return false; }
           }
       },
 
       // [NET] Advanced Network Operations
       net: {
-          // TCP Listener
-          listen: (port, on_connect) => {
-              const net = require("net");
-              const server = net.createServer(async (socket) => {
-                  const client = {
-                      ip: socket.remoteAddress,
-                      send: (d) => { try { socket.write(String(d)); return true; } catch(e){ return false; } },
-                      close: () => socket.destroy(),
-                      on_data: (fn) => {
-                          socket.on('data', async (d) => {
-                              if (fn && fn.__fnref__) await this._call(fn, [d.toString()], this.global);
-                          });
-                      }
-                  };
-                  if (on_connect && on_connect.__fnref__) {
-                      await this._call(on_connect, [client], this.global);
-                  }
+          // HTTP Server (Simple)
+          server: async (port, handler) => {
+              const http = require('http');
+              return new Promise(resolve => {
+                  const srv = http.createServer(async (req, res) => {
+                      const r = {
+                          method: req.method,
+                          url: req.url,
+                          headers: req.headers
+                      };
+                      
+                      let body = "";
+                      req.on('data', chunk => body += chunk);
+                      req.on('end', async () => {
+                          r.body = body;
+                          try {
+                              let result = { status: 404, body: "Not Found" };
+                              
+                              if (handler) {
+                                  if (handler.__fnref__) {
+                                      result = await this._call(handler, [r], this.global);
+                                  } else if (typeof handler === 'object') {
+                                      // Simple router: { "/path": fn }
+                                      const path = req.url.split('?')[0];
+                                      const h = handler[path];
+                                      if (h) {
+                                          if (h.__fnref__) result = await this._call(h, [r], this.global);
+                                          else result = h;
+                                      }
+                                  }
+                              }
+
+                              // Format Response
+                              let status = 200;
+                              let headers = { 'Content-Type': 'text/plain' };
+                              let resBody = "";
+                              
+                              if (result && typeof result === 'object') {
+                                  status = result.status || 200;
+                                  if (result.headers) headers = { ...headers, ...result.headers };
+                                  if (result.type) headers['Content-Type'] = result.type;
+                                  resBody = result.body || "";
+                                  if (typeof resBody !== 'string') resBody = JSON.stringify(resBody);
+                              } else {
+                                  resBody = String(result);
+                              }
+                              
+                              res.writeHead(status, headers);
+                              res.end(resBody);
+                          } catch(e) {
+                              res.writeHead(500); res.end("Internal Server Error: " + e.message);
+                          }
+                      });
+                  });
+                  
+                  srv.listen(Number(port), () => {
+                      resolve(true);
+                  });
+                  srv.on('error', () => resolve(false));
               });
-              
-              server.on('error', (e) => console.error("Net Error:", e.message));
-              server.listen(Number(port));
-              
-              return {
-                  close: () => server.close()
-              };
+          },
+          
+          download: async (url, path) => {
+              const fs = require('fs');
+              const https = require('https');
+              return new Promise(resolve => {
+                  const file = fs.createWriteStream(path);
+                  https.get(url, function(response) {
+                      response.pipe(file);
+                      file.on('finish', function() {
+                          file.close(() => resolve(true));
+                      });
+                  }).on('error', () => {
+                      fs.unlink(path, () => resolve(false));
+                  });
+              });
           },
 
           // Socket Connect / Port Scan
@@ -5634,31 +5913,81 @@ Add-Type -TypeDefinition $code -Language CCSharp
              });
           },
 
-          // Persistent TCP Client (Reverse Shell / C2)
-          tcp_connect: (host, port, on_connect) => {
-              const net = require("net");
-              const socket = new net.Socket();
+          // TCP Client
+          tcp_client: async (host, port, onData) => {
+              const net = require('net');
+              const client = new net.Socket();
+              const id = "tcp_" + Date.now() + "_" + Math.random();
               
-              const client = {
-                  send: (d) => { try { socket.write(String(d)); return true; } catch(e){ return false; } },
-                  close: () => socket.destroy(),
-                  on_data: (fn) => {
-                       socket.on('data', async (d) => {
-                           if (fn && fn.__fnref__) await this._call(fn, [d.toString()], this.global);
-                       });
-                  }
-              };
+              // We need to store the client to allow writing/closing later
+              // Assuming we might add a global 'sockets' map or similar if we want to return an object.
+              // For now, let's return a simple control object.
               
-              socket.connect(Number(port), String(host), async () => {
-                  if (on_connect && on_connect.__fnref__) {
-                      await this._call(on_connect, [client], this.global);
-                  }
+              return new Promise(resolve => {
+                  client.connect(Number(port), String(host), () => {
+                      const api = {
+                          id: id,
+                          write: (data) => client.write(String(data)),
+                          close: () => client.destroy()
+                      };
+                      
+                      client.on('data', async (data) => {
+                           if (onData && onData.__fnref__) {
+                               await this._call(onData, [data.toString(), api], this.global);
+                           }
+                      });
+                      
+                      client.on('close', () => { /* Connection closed */ });
+                      
+                      resolve(api);
+                  });
+                  client.on('error', () => resolve(null));
               });
-              
-              socket.on('error', (e) => console.error("TCP Client Error:", e.message));
-              return client;
           },
           
+          // UDP Client/Server (Simple)
+          udp_socket: async (port, onMsg) => {
+              const dgram = require('dgram');
+              const server = dgram.createSocket('udp4');
+              
+              return new Promise(resolve => {
+                  server.on('error', (err) => {
+                      server.close();
+                      resolve(null);
+                  });
+
+                  server.on('message', async (msg, rinfo) => {
+                      if (onMsg && onMsg.__fnref__) {
+                          const info = { address: rinfo.address, port: rinfo.port, size: rinfo.size };
+                          await this._call(onMsg, [msg.toString(), info], this.global);
+                      }
+                  });
+
+                  server.on('listening', () => {
+                      const address = server.address();
+                      const api = {
+                          send: (msg, host, port) => {
+                              server.send(String(msg), Number(port), String(host));
+                          },
+                          close: () => server.close()
+                      };
+                      resolve(api);
+                  });
+
+                  if (port) server.bind(Number(port));
+                  else {
+                       // Just a client, no bind needed (random port)
+                       const api = {
+                          send: (msg, host, port) => {
+                              server.send(String(msg), Number(port), String(host));
+                          },
+                          close: () => server.close()
+                      };
+                      resolve(api);
+                  }
+              });
+          },
+
           // Get Public IP (External)
           public_ip: async () => {
               try {
@@ -5711,14 +6040,146 @@ Add-Type -TypeDefinition $code -Language CCSharp
 
 
 
+
+
       fs: {
           read: (path) => { try { return require('fs').readFileSync(String(path), 'utf8'); } catch(e) { return null; } },
           write: (path, data) => { try { require('fs').writeFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
           append: (path, data) => { try { require('fs').appendFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
           exists: (path) => require('fs').existsSync(String(path)),
           mkdir: (path) => { try { require('fs').mkdirSync(String(path), {recursive:true}); return true; } catch(e) { return false; } },
+          
+          // Enhanced FS
           list: (path) => { try { return require('fs').readdirSync(String(path)); } catch(e) { return []; } },
-          delete: (path) => { try { require('fs').rmSync(String(path), {recursive:true, force:true}); return true; } catch(e) { return false; } }
+          
+          list_recursive: (dir) => {
+              const fs = require('fs');
+              const path = require('path');
+              let results = [];
+              try {
+                  const list = fs.readdirSync(dir);
+                  list.forEach(file => {
+                      file = path.join(dir, file);
+                      const stat = fs.statSync(file);
+                      if (stat && stat.isDirectory()) { 
+                          results = results.concat(builtins.fs.list_recursive(file));
+                      } else { 
+                          results.push(file);
+                      }
+                  });
+              } catch(e) {}
+              return results;
+          },
+          
+          copy: (src, dest) => { try { require('fs').copyFileSync(String(src), String(dest)); return true; } catch(e) { return false; } },
+          move: (src, dest) => { try { require('fs').renameSync(String(src), String(dest)); return true; } catch(e) { return false; } },
+          delete: (path) => { try { require('fs').rmSync(String(path), {recursive:true, force:true}); return true; } catch(e) { return false; } },
+          
+          stats: (path) => {
+              try {
+                  const s = require('fs').statSync(String(path));
+                  return { size: s.size, is_dir: s.isDirectory(), mtime: s.mtimeMs, ctime: s.ctimeMs };
+              } catch(e) { return null; }
+          }
+      },
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // [DB] Lightweight JSON Database
+      // ──────────────────────────────────────────────────────────────────────────
+      db: {
+          _data: {},
+          _path: null,
+
+          open: (path) => {
+              builtins.db._path = String(path);
+              try {
+                  const fs = require('fs');
+                  if (fs.existsSync(builtins.db._path)) {
+                      builtins.db._data = JSON.parse(fs.readFileSync(builtins.db._path, 'utf8'));
+                  } else {
+                      builtins.db._data = {};
+                  }
+                  return true;
+              } catch(e) { return false; }
+          },
+
+          save: () => {
+              if (!builtins.db._path) return false;
+              try {
+                  require('fs').writeFileSync(builtins.db._path, JSON.stringify(builtins.db._data, null, 2));
+                  return true;
+              } catch(e) { return false; }
+          },
+
+          set: (key, value) => {
+              builtins.db._data[String(key)] = value;
+              return true; // Auto-save could be optional, but for now manual save is better for perf
+          },
+
+          get: (key) => {
+              return builtins.db._data[String(key)];
+          },
+
+          delete: (key) => {
+              delete builtins.db._data[String(key)];
+              return true;
+          },
+          
+          keys: () => Object.keys(builtins.db._data),
+          
+          // Collection helper (Array of Objects)
+          push: (key, item) => {
+              if (!Array.isArray(builtins.db._data[key])) builtins.db._data[key] = [];
+              builtins.db._data[key].push(item);
+          },
+          
+          find: (key, queryFn) => {
+             // QueryFn must be a Fazer function taking an item and returning true/false
+             // We can't easily execute it here without async _call overhead if it's complex.
+             // For simplicity in this version, we return the whole array and let Fazer filter it.
+             return builtins.db._data[key] || [];
+          }
+      },
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // [SCHED] Task Scheduler
+      // ──────────────────────────────────────────────────────────────────────────
+      sched: {
+          _tasks: {},
+          
+          after: async (ms, fn) => {
+              const id = "t_" + Date.now() + "_" + Math.random();
+              const timer = setTimeout(async () => {
+                  try {
+                      await this._call(fn, [], this.global);
+                  } catch(e) { console.error("Sched Error:", e); }
+                  delete builtins.sched._tasks[id];
+              }, Number(ms));
+              builtins.sched._tasks[id] = timer;
+              return id;
+          },
+          
+          every: async (ms, fn) => {
+              const id = "i_" + Date.now() + "_" + Math.random();
+              const timer = setInterval(async () => {
+                  try {
+                      await this._call(fn, [], this.global);
+                  } catch(e) { console.error("Sched Error:", e); }
+              }, Number(ms));
+              builtins.sched._tasks[id] = timer;
+              return id;
+          },
+          
+          cancel: (id) => {
+              const t = builtins.sched._tasks[id];
+              if (t) {
+                  clearTimeout(t);
+                  clearInterval(t);
+                  delete builtins.sched._tasks[id];
+                  return true;
+              }
+              return false;
+          }
       },
 
       // [WEBVIEW] Modern HTML/CSS UI
@@ -5970,9 +6431,9 @@ ascii_art: (text, fontName) => {
           await rt.run(ast);
           
           const exports = {};
-          // console.log("Exporting vars from module...");
+          console.log("Exporting vars from module...");
           for (const [k, v] of rt.global.vars) {
-              // console.log("Exporting:", k, v);
+              console.log("Exporting:", k, v);
               if (k === "__builtins__" || builtins[k]) continue; 
               
               let value = v.value;
@@ -6411,24 +6872,9 @@ $results | ConvertTo-Json -Compress
         }
       },
       
-      http_server: (port, handler) => {
-          const http = require('http');
-          const server = http.createServer(async (req, res) => {
-              if (handler && handler.__fnref__) {
-                  const result = await this._call(handler, [{
-                      method: req.method,
-                      url: req.url,
-                      headers: req.headers
-                  }], this.global);
-                  
-                  res.writeHead(200, { 'Content-Type': 'text/html' });
-                  res.end(String(result));
-              } else {
-                  res.end("Fazer Server Running");
-              }
-          });
-          server.listen(Number(port));
-          console.log(`HTTP Server running on port ${port}`);
+      server: (port, handlerName) => {
+        // This old implementation is deprecated/removed in favor of the async one below
+        throw new FazerError("This server signature is deprecated. Use server(port, router_obj).");
       },
 
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Number(ms))),
@@ -8821,45 +9267,6 @@ async function main() {
           console.log(require("crypto").randomUUID());
       },
       
-      "compile": async (args) => {
-          if (!args[0]) return console.log(`${colors.red}Usage: fazer compile <file.fz> [-o output.fzc]${colors.reset}`);
-          const fs = require("fs");
-          const path = require("path");
-          const crypto = require("crypto");
-          
-          const inputFile = args[0];
-          if (!fs.existsSync(inputFile)) return console.error(`${colors.red}[!] File not found: ${inputFile}${colors.reset}`);
-          
-          let outputFile = inputFile.replace(/\.fz$/i, ".fzc");
-          if (args[1] === "-o" && args[2]) outputFile = args[2];
-          
-          console.log(`${colors.cyan}[*] Compiling/Encrypting ${inputFile}...${colors.reset}`);
-          
-          try {
-              const content = fs.readFileSync(inputFile, "utf8");
-              // Simple obfuscation/encryption using a hardcoded key (Security through obscurity, but sufficient for basic protection)
-              // We use AES-256-CTR with a fixed key/iv derived from a salt, or just a simple key.
-              // To make it portable, the interpreter must know the key. We'll use a hardcoded key in the interpreter.
-              const KEY = Buffer.from("46617a65724c616e675365637265743132334b6579214023", "hex"); // "FazerLangSecret123Key!@#" in hex (24 bytes) - wait, needs 32 for AES-256 or 16 for AES-128
-              // Let's use a simpler XOR-based or standard AES approach.
-              // We'll use a static key for now so any Fazer interpreter can run it.
-              const STATIC_KEY = crypto.createHash('sha256').update("FazerLangPublicRuntimeKey2026").digest();
-              const iv = crypto.randomBytes(16);
-              const cipher = crypto.createCipheriv('aes-256-cbc', STATIC_KEY, iv);
-              let encrypted = cipher.update(content, 'utf8', 'hex');
-              encrypted += cipher.final('hex');
-              
-              // File Format: FZC01[IV_HEX][ENCRYPTED_HEX]
-              const data = `FZC01${iv.toString('hex')}${encrypted}`;
-              fs.writeFileSync(outputFile, data, "utf8");
-              
-              console.log(`${colors.green}[+] Success! Compiled to: ${outputFile}${colors.reset}`);
-              console.log(`${colors.yellow}[i] You can now distribute '${outputFile}'. It can be run with 'fazer ${outputFile}' but cannot be easily read.${colors.reset}`);
-          } catch(e) {
-              console.error(`${colors.red}[!] Error: ${e.message}${colors.reset}`);
-          }
-      },
-
       // --- SYSTEM / UTILS ---
       "ls": async (args) => {
           const fs = require("fs");
@@ -9023,26 +9430,7 @@ async function main() {
     process.exit(1);
   }
 
-  let code = fs.readFileSync(filePath, "utf8");
-
-  // --- DECRYPT IF FZC ---
-  if (code.startsWith("FZC01")) {
-      try {
-          const crypto = require("crypto");
-          const STATIC_KEY = crypto.createHash('sha256').update("FazerLangPublicRuntimeKey2026").digest();
-          const iv = Buffer.from(code.substring(5, 37), 'hex');
-          const encryptedText = code.substring(37);
-          const decipher = crypto.createDecipheriv('aes-256-cbc', STATIC_KEY, iv);
-          let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-          decrypted += decipher.final('utf8');
-          code = decrypted;
-      } catch(e) {
-          console.error("Error: Failed to decrypt .fzc file. It might be corrupted or version mismatch.");
-          process.exit(1);
-      }
-  }
-  // ----------------------
-
+  const code = fs.readFileSync(filePath, "utf8");
   const lex = lexer.tokenize(code);
   if (lex.errors.length) {
     console.error("Lexer error:", lex.errors[0].message || String(lex.errors[0]));

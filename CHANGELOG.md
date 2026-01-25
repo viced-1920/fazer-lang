@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-01-26
+
+### Added
+- **Native Database (`db`)**: Built-in JSON NoSQL database.
+    - `db.open(path)`: Load/create a database file.
+    - `db.set(key, val)`, `db.get(key)`, `db.push(key, item)`: Data manipulation.
+    - `db.save()`: Persist data to disk.
+- **Task Scheduler (`sched`)**: Native automation scheduler.
+    - `sched.every(ms, fn)`: Recurring tasks (intervals).
+    - `sched.after(ms, fn)`: Delayed tasks (timeouts).
+- **Network Sockets (`net`)**: Low-level TCP/UDP support.
+    - `net.tcp_client(host, port, callback)`: Raw TCP client.
+    - `net.udp_socket(port, callback)`: UDP Server (bind) or Client.
+- **Physics Helpers (`phys`)**: Game development math utilities.
+    - `phys.dist`, `phys.angle`, `phys.clamp`, `phys.lerp`, `phys.aabb`.
+- **Ecosystem**: Added `opensiren.fz` example (UDP Syslog Server).
+
+## [3.3.0] - 2026-01-25
+
+### Added
+- **GFX Image & Audio**:
+    - `gfx.load_image(key, path)`: Support for PNG/JPG/GIF.
+    - `gfx.image(key, x, y)`: Draw images/sprites.
+    - `gfx.load_sound(key, path)`: Support for WAV/MP3.
+    - `gfx.play_sound(key)`: Audio playback.
+- **GFX Optimization**:
+    - `gfx.batch(key, items)`: High-performance batch rendering for tilemaps.
+- **Isometric Math**: Added `lib/iso.fz` standard library.
+
 ## [3.2.1] - 2026-01-25
 
 ### Added

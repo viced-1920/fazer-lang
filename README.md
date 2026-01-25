@@ -4,6 +4,15 @@
 
 Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer combine une syntaxe concise avec une bibliothèque standard "batteries included".
 
+![Version](https://img.shields.io/badge/version-3.4.0-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+## Nouveautés v3.4 (Ecosystem Update)
+
+*   **Base de Données (`db`)** : Stockage JSON natif et persistant.
+*   **Planificateur (`sched`)** : Automatisation de tâches (Cron-like).
+*   **Réseau (`net`)** : Support complet TCP/UDP Sockets.
+*   **Physique (`phys`)** : Outils mathématiques pour le jeu vidéo.
+
 ## Installation
 
 ### Windows

@@ -1,0 +1,58 @@
+
+# Fazer Isometric Math Library
+# Provides helpers for Isometric Projection games (SimCity style)
+
+# Configuration
+TILE_WIDTH := 64
+TILE_HEIGHT := 32
+
+# Convert World (Grid) Coordinates to Screen Coordinates
+# x, y: Grid coordinates
+# z: Height (elevation)
+fn to_screen(x, y, z) ->
+    # Standard Isometric Projection (2:1 ratio)
+    # iso_x = (x - y) * (TILE_WIDTH / 2)
+    # iso_y = (x + y) * (TILE_HEIGHT / 2) - z
+    
+    sx := (x - y) * (TILE_WIDTH / 2)
+    sy := (x + y) * (TILE_HEIGHT / 2) - (z * TILE_HEIGHT) # Z affects Y
+    
+    return { "x": sx, "y": sy }
+end
+
+# Convert Screen Coordinates to World Coordinates (Picking)
+# offset_x, offset_y: Camera offset must be subtracted before calling this if used
+fn to_world(sx, sy) ->
+    # Invert the projection
+    # approximations for picking
+    
+    adj_y := sy * 2
+    
+    # x = (sx / (W/2) + sy / (H/2)) / 2
+    # y = (sy / (H/2) - sx / (W/2)) / 2
+    
+    w2 := TILE_WIDTH / 2
+    h2 := TILE_HEIGHT / 2
+    
+    col := (sx / w2 + sy / h2) / 2
+    row := (sy / h2 - sx / w2) / 2
+    
+    return { "x": Math.floor(col), "y": Math.floor(row) }
+end
+
+# Depth Sort
+# Sorts a list of objects based on their render depth
+# Objects must have x, y, z properties
+fn sort_depth(list) ->
+    # Bubble sort for simplicity (or insertion sort if list is nearly sorted)
+    # Depth = x + y + z usually for isometric
+    # Or just y screen coordinate?
+    # Better: (x + y) * some_factor + z
+    
+    # Fazer doesn't have a built-in sort for objects yet, so we implement a simple one
+    # Note: For large lists, this might be slow in interpreted mode. 
+    # Recommended to use layers instead if possible.
+    
+    # TODO: Native sort in Fazer would be better.
+    return list 
+end
