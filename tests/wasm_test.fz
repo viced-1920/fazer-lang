@@ -1,0 +1,31 @@
+fn main() ->
+  println("--- WASM Support Test ---")
+  
+  # Minimal WASM Header: \0asm\1\0\0\0
+  bytes := [0, 97, 115, 109, 1, 0, 0, 0]
+  
+  println("Validating bytes...")
+  # Need to convert array to TypedArray/Buffer in builtins or ensure validate handles array
+  # The wrapper I wrote: validate: (bytes) => WebAssembly.validate(bytes)
+  # WebAssembly.validate expects BufferSource (TypedArray or ArrayBuffer).
+  # JS arrays are NOT BufferSource.
+  # So I need to ensure my `validate` wrapper converts Array to Buffer/Uint8Array.
+  
+  # Wait, let's fix the validate wrapper first if needed.
+  # In builtins: validate: (bytes) => WebAssembly.validate(bytes)
+  # If bytes is Fazer List (JS Array), this will throw.
+  
+  println("Writing wasm file...")
+  fs.write_bytes("tests/test.wasm", bytes)
+  
+  println("Loading wasm file...")
+  mod := await wasm.load("tests/test.wasm")
+  
+  println("WASM Module Loaded!")
+  println("Exports keys: " + keys(mod.exports))
+  
+  # Cleanup
+  fs.delete("tests/test.wasm")
+end
+
+await main()

@@ -1,0 +1,64 @@
+fn sleep(ms) ->
+  return await promise_new(fn(resolve, reject) ->
+    sched.after(ms, fn() -> resolve(null) end)
+  end)
+end
+
+fn test_channels() ->
+  println("--- Testing Channels ---")
+  
+  # Unbuffered
+  println("[1] Testing Unbuffered Channel")
+  c := chan(0)
+  
+  spawn(fn() ->
+    println("    [Sender] Sending 10...")
+    await send(c, 10)
+    println("    [Sender] Sent 10")
+    
+    await sleep(500)
+    
+    println("    [Sender] Sending 20...")
+    await send(c, 20)
+    println("    [Sender] Sent 20")
+    
+    close(c)
+    println("    [Sender] Closed channel")
+  end)
+  
+  println("    [Receiver] Waiting for 10...")
+  v1 := await recv(c)
+  println("    [Receiver] Got: " + v1)
+  
+  println("    [Receiver] Waiting for 20...")
+  v2 := await recv(c)
+  println("    [Receiver] Got: " + v2)
+  
+  v3 := await recv(c)
+  println("    [Receiver] Got from closed: " + v3)
+  
+  # Buffered
+  println("\n[2] Testing Buffered Channel (cap=2)")
+  cb := chan(2)
+  await send(cb, "A")
+  println("    [Buffered] Sent A")
+  await send(cb, "B")
+  println("    [Buffered] Sent B")
+  
+  spawn(fn() ->
+    println("    [Sender] Sending C (will block until read)...")
+    await send(cb, "C")
+    println("    [Sender] Sent C")
+  end)
+  
+  await sleep(100)
+  
+  println("    [Receiver] Reading...")
+  println("    [Receiver] Got: " + await recv(cb))
+  println("    [Receiver] Got: " + await recv(cb))
+  println("    [Receiver] Got: " + await recv(cb))
+  
+  println("--- DONE ---")
+end
+
+test_channels()

@@ -1,38 +1,33 @@
 {
-  "title": "💀 Fazer 2.5.0 Released - The \"Red Team\" Update",
-  "description": "Une mise à jour **MAJEURE** transformant Fazer en un véritable couteau suisse pour le **Pentest**, le **Malware Dev** et l'**OSINT**. Fazer n'est plus seulement un langage éducatif, c'est une arme de développement rapide.\n\n`npm install -g fazer-lang` pour mettre à jour.",
-  "color": 16711680,
+  "title": "👑 Fazer 4.0.0 - The \"Empire\" Update",
+  "description": "L'évolution ultime. Fazer devient un écosystème complet : Serveur HTTP, WebSocket, Async/Await, Crypto RSA, SQLite, et bien plus. Une puissance brute pour les développeurs et les Red Teamers.\n\n`npm install -g fazer-lang`",
+  "color": 3447003,
   "fields": [
     {
-      "name": "🕵️‍♂️ Cyber & Cryptographie (Ransomware Sim)",
-      "value": "• **`encrypt_file(file, key, iv)`** : Chiffrement AES-256-CBC de fichiers entiers.\n• **`decrypt_file(file, key, iv)`** : Déchiffrement rapide.\n• **`walk_dir(path)`** : Scan récursif ultra-rapide pour lister tous les fichiers d'un disque (Cible idéale pour ransomware).",
+      "name": "🌐 Réseau & Serveur",
+      "value": "• **HTTP Server** : Créez des APIs REST en 5 lignes (`net.server`).\n• **WebSocket** : Client temps réel compatible `ws`.\n• **Fetch** : Support JSON natif et redirections.",
       "inline": false
     },
     {
-      "name": "🛡️ Système & Persistance (RAT / Malware)",
-      "value": "• **`registry_set(key, name, val)`** : Écriture dans le registre Windows (HKCU/HKLM) pour assurer la persistance au démarrage.\n• **`registry_get(key, name)`** : Lecture de configurations système.\n• **`set_wallpaper(path)`** : Changement du fond d'écran via API système (Troll / Defacement).\n• **`exec(cmd)`** : Exécution de commandes shell natives (PowerShell/CMD) en mode silencieux.",
+      "name": "⚡ Async & Concurrence",
+      "value": "• **Async/Await** : Enfin natif !\n• **Channels** : Communication inter-processus style Go.\n• **Profiler** : Analysez les goulots d'étranglement.",
       "inline": false
     },
     {
-      "name": "📡 Réseau & C2 (Reverse Shell)",
-      "value": "• **`tcp_connect(ip, port, callback)`** : Créez des clients TCP/Reverse Shells en 3 lignes de code.\n• **`tcp_listen(port, callback)`** : Montez un serveur C2 (Command & Control) léger pour recevoir les exfiltrations.",
+      "name": "🔐 Crypto & Sécurité",
+      "value": "• **RSA** : Chiffrement asymétrique complet (Sign/Verify).\n• **Keystore** : Coffre-fort chiffré pour vos secrets.\n• **SQLite** : Base de données locale robuste.",
       "inline": false
     },
     {
-      "name": "⚡ Utilitaires & Evasion",
-      "value": "• **`sleep(ms)`** : Pause l'exécution pour contourner les analyses heuristiques (Sandbox evasion).\n• **`Fazer Studio`** : IDE complet mis à jour avec support de ces nouvelles fonctions.",
-      "inline": false
-    },
-    {
-      "name": "📚 Documentation",
-      "value": "Le [GUIDE.md](https://github.com/votre-repo/fazer/blob/main/docs/GUIDE.md) a été entièrement réécrit avec une section **PENTESTING** dédiée.",
+      "name": "📦 Système & Outils",
+      "value": "• **Plugin System** : Chargez des extensions dynamiquement.\n• **CSV/Cron/Gzip** : Tout ce qu'il faut pour l'automatisation.\n• **Test Runner** : Framework de test intégré.",
       "inline": false
     }
   ],
   "footer": {
-    "text": "Fazer Lang - Hack The World (Ethically) 🚩"
+    "text": "Fazer Lang v4.0.0 - Build Your Empire 🚩"
   },
   "thumbnail": {
-    "url": "https://cdn-icons-png.flaticon.com/512/2920/2920349.png"
+    "url": "https://cdn-icons-png.flaticon.com/512/9309/9309395.png"
   }
 }

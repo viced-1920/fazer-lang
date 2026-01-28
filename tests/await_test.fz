@@ -1,0 +1,12 @@
+fn delay(ms) ->
+  return sleep(ms)
+end
+
+fn run() ->
+  await delay(10)
+  mut x := 1
+  x := x + 1
+  return x
+end
+
+res := run()

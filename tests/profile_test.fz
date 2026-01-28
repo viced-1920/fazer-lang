@@ -1,0 +1,41 @@
+fn fib(n) ->
+  if n < 2 -> return n end
+  return fib(n - 1) + fib(n - 2)
+end
+
+fn test_profiler() ->
+  println("--- Testing Profiler ---")
+  
+  profile.start()
+  
+  println("Calculating fib(10)...")
+  res := fib(10)
+  println("Result: " + res)
+  
+  profile.stop()
+  
+  data := profile.report()
+  println("Profile Data:")
+  println(data) # Check if [native] println is here
+  
+  # Accessing the metrics for 'fib'
+  # Note: report() returns a JS object { "fib": { "count": X, "time": Y } }
+  stats := data.fib
+  
+  if stats ->
+      println("  Count: " + stats.count)
+      println("  Time:  " + stats.time + "ms")
+      println("SUCCESS: Profiler captured data.")
+  else ->
+      println("FAILURE: No stats for 'fib'")
+  end
+  
+  println("\n--- Testing Trace (fib(3)) ---")
+  profile.trace(true)
+  fib(3)
+  profile.trace(false)
+  
+  println("--- DONE ---")
+end
+
+test_profiler()

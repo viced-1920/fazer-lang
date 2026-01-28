@@ -2,24 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.4.0] - 2026-01-26
+## [4.0.0] - 2026-01-28
 
-### Added
-- **Native Database (`db`)**: Built-in JSON NoSQL database.
-    - `db.open(path)`: Load/create a database file.
-    - `db.set(key, val)`, `db.get(key)`, `db.push(key, item)`: Data manipulation.
-    - `db.save()`: Persist data to disk.
-- **Task Scheduler (`sched`)**: Native automation scheduler.
-    - `sched.every(ms, fn)`: Recurring tasks (intervals).
-    - `sched.after(ms, fn)`: Delayed tasks (timeouts).
-- **Network Sockets (`net`)**: Low-level TCP/UDP support.
-    - `net.tcp_client(host, port, callback)`: Raw TCP client.
-    - `net.udp_socket(port, callback)`: UDP Server (bind) or Client.
-- **Physics Helpers (`phys`)**: Game development math utilities.
-    - `phys.dist`, `phys.angle`, `phys.clamp`, `phys.lerp`, `phys.aabb`.
-- **Ecosystem**: Added `opensiren.fz` example (UDP Syslog Server).
+### Added (The "Empire" Update)
 
-## [3.3.0] - 2026-01-25
+- **Core & Runtime**:
+    - **Async/Await**: Native syntax for asynchronous operations (`async fn`, `await`).
+    - **Channels**: Go-style concurrency primitives (`chan`, `send`, `recv`, `close`).
+    - **Profiler**: Performance analysis tools (`profile.start`, `profile.end`).
+    - **Trace Mode**: Function call tracing for debugging (`trace.on`, `trace.off`).
+    - **WASM**: WebAssembly support (`wasm.load`, `wasm.run`).
+    - **Plugin System**: Dynamic loading of `.js` extensions (`load_plugin`).
+    - **Permission Sandbox**: Granular access control CLI flags (`--allow-net`, `--deny-fs`).
+
+- **Network & Server**:
+    - **HTTP Server**: `net.server(port, handler)` with automatic JSON body parsing.
+    - **WebSocket Client**: `net.websocket(url)` supporting both `ws` package and native implementation.
+    - **Fetch**: Enhanced `fetch()` with JSON object support, auto-headers, and redirect following.
+    - **SQLite**: Native `sqlite` module (via `better-sqlite3`) for robust local databases.
+
+- **Security & Crypto**:
+    - **RSA**: Full RSA support (`rsa_keypair`, `rsa_encrypt`, `rsa_decrypt`, `sign`, `verify`).
+    - **Keystore**: Encrypted secret storage (`keystore.open`, `keystore.save`, `keystore.set/get`).
+    - **Shred**: Secure file deletion (`security.shred`).
+
+- **System & Utils**:
+    - **Integration**: `clipboard` (get/set), `notify` (toast), `window` (dialogs).
+    - **Data Formats**: `csv` (parse/stringify), `compression` (gzip/gunzip).
+    - **Cron**: Task scheduling with `sched.cron(expr, fn)`.
+    - **Logging**: Structured logger (`log.info`, `log.warn`, `log.error`).
+    - **Testing**: Built-in test runner (`test.assert`, `test.run`).
+
+## [3.5.0] - 2026-01-26
 
 ### Added
 - **GFX Image & Audio**:

@@ -32,6 +32,16 @@ if fs_exists("data") -> ... end
 
 ## Manipulation de Données
 
+### Entrée Utilisateur (Terminal)
+
+*   `read_line(prompt)` : Lit une ligne tapée au clavier dans le terminal.
+*   `menu(options)` : Affiche une liste numérotée et retourne le choix sélectionné.
+
+```fazer
+nom := read_line("Votre nom: ")
+choix := menu(["Scanner", "Chiffrer", "Quitter"])
+```
+
 ### JSON
 *   `json_parse(str)` : Convertit une chaîne JSON en objet/liste.
 *   `json_stringify(obj)` : Convertit un objet en chaîne JSON formatée.
@@ -98,6 +108,53 @@ db.open("users.json")
 Pour l'automatisation et les tâches récurrentes.
 
 ### `sched.every(ms, fn)`
+
+## Sécurité (security)
+
+Module dédié à la protection des données, à l'anonymat et à l'anti-forensique.
+
+### `security.shred(path, passes)`
+Supprime définitivement un fichier en l'écrasant plusieurs fois avec des données aléatoires avant suppression.
+*   `passes` (optionnel) : Nombre de passes (défaut : 3).
+```fazer
+security.shred("secret.txt", 7)
+```
+
+### `security.lock_folder(path)` / `security.unlock_folder(path)`
+(Windows uniquement) Rend un dossier "Super-Caché" (Attributs Système + Caché + Lecture Seule).
+Le dossier devient invisible dans l'explorateur par défaut.
+```fazer
+security.lock_folder("C:\\CoffreFort")
+```
+
+### `security.encrypt_file(path, password)` / `security.decrypt_file(path, password)`
+Chiffre ou déchiffre un fichier en utilisant l'algorithme AES-256-CBC.
+Le fichier original est remplacé par sa version `.enc` (ou restauré).
+```fazer
+security.encrypt_file("passwords.txt", "MonSuperMotDePasse")
+```
+
+### `security.monitor(path, callback)`
+Surveille un dossier ou fichier en temps réel pour détecter les modifications (création, modification, suppression).
+```fazer
+security.monitor("C:\\Logs", fn(evt, file) ->
+    print("Alerte: " + evt + " sur " + file)
+end)
+```
+
+### `security.steg_hide(image_path, file_path, output_path)`
+(Nouveau) Cache un fichier à l'intérieur d'une image (Stéganographie LSB).
+```fazer
+security.steg_hide("vacances.png", "secret.txt", "vacances_safe.png")
+```
+
+### `security.firewall_block(ip_or_port)`
+(Nouveau) Ajoute une règle de pare-feu Windows pour bloquer une IP ou un Port (Nécessite Admin).
+```fazer
+security.firewall_block("192.168.1.50")
+security.firewall_block(8080)
+```
+
 Exécute une fonction en boucle.
 ```fazer
 id := sched.every(1000, fn() -> print("Tick") end)
@@ -199,3 +256,12 @@ Fonctionnalités pour créer des interfaces en ligne de commande (TUI) riches et
     *   Exemple : `ui_bar(50, 100, 20)` -> `██████████          `
 *   `box(title, line1, line2, ...)` : Affiche une boîte encadrée.
 
+## Sécurité & Protection (security)
+
+Module dédié à la protection des données, destruction sécurisée et surveillance.
+Voir la documentation complète : [security.md](security.md)
+
+*   `security.shred(path)` : Suppression sécurisée (multi-pass overwrite).
+*   `security.encrypt_file(path, key)` : Chiffrement AES-256 de fichiers.
+*   `security.lock_folder(path)` : Verrouillage/Masquage de dossier (Windows).
+*   `security.monitor(path, callback)` : Détection d'intrusions sur fichiers/dossiers.

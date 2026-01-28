@@ -1,0 +1,49 @@
+fn main() ->
+  println("--- Testing Security & Crypto ---")
+  
+  # 1. Test Keystore
+  println("Testing Keystore...")
+  path := "tests/secrets.enc"
+  masterKey := "my-secret-password-123"
+  
+  if (fs.exists(path)) -> fs.delete(path) end
+  
+  keystore.open(path, masterKey)
+  keystore.set("api_key", "12345-ABCDE")
+  keystore.set("db_pass", "super_secure")
+  saved := keystore.save()
+  
+  if (saved) -> println("Keystore Saved") else -> println("Keystore Save FAILED") end
+  
+  # Re-open
+  keystore.open(path, masterKey)
+  val := keystore.get("api_key")
+  println("Retrieved API Key: " + val)
+  
+  if (val == "12345-ABCDE") -> println("Keystore OK") else -> println("Keystore FAILED") end
+  fs.delete(path)
+  
+  # 2. Test RSA
+  println("Testing RSA...")
+  kp := crypto.rsa_keypair()
+  println("Keys Generated")
+  
+  msg := "Secret Message"
+  encrypted := crypto.rsa_encrypt(kp.public, msg)
+  println("Encrypted len: " + len(encrypted))
+  
+  decrypted := crypto.rsa_decrypt(kp.private, encrypted)
+  println("Decrypted: " + decrypted)
+  
+  if (decrypted == msg) -> println("RSA Encrypt/Decrypt OK") else -> println("RSA FAILED") end
+  
+  # 3. Test Sign/Verify
+  sig := crypto.sign(kp.private, msg)
+  println("Signature len: " + len(sig))
+  
+  valid := crypto.verify(kp.public, msg, sig)
+  if (valid) -> println("Signature OK") else -> println("Signature FAILED") end
+  
+end
+
+main()

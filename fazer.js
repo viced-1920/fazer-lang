@@ -23,7 +23,26 @@ const fetchWithRedirects = (url, opts = {}, maxRedirects = 5) => {
         
         const isHttp = url.startsWith("http:");
         const mod = isHttp ? http : https;
-        const options = { method: opts.method || "GET", headers: opts.headers || {} };
+        
+        // Prepare headers and body
+        const headers = opts.headers || {};
+        let body = opts.body;
+        
+        if (body) {
+             if (typeof body === 'object' && !Buffer.isBuffer(body)) {
+                 try {
+                     body = JSON.stringify(body);
+                     const hasType = Object.keys(headers).some(k => k.toLowerCase() === 'content-type');
+                     if (!hasType) headers['Content-Type'] = 'application/json';
+                 } catch(e) { body = String(body); }
+             } else if (typeof body !== 'string' && !Buffer.isBuffer(body)) {
+                 body = String(body);
+             }
+             // Set Content-Length if not chunked (Node usually handles this but good practice)
+             // headers['Content-Length'] = Buffer.byteLength(body); 
+        }
+
+        const options = { method: opts.method || "GET", headers: headers };
         
         const req = mod.request(url, options, (res) => {
             // Handle Redirects
@@ -41,7 +60,10 @@ const fetchWithRedirects = (url, opts = {}, maxRedirects = 5) => {
         });
         
         req.on("error", (e) => resolve({ status: 0, body: "", error: e.message }));
-        if (opts.body) req.write(String(opts.body));
+        
+        if (body) {
+            req.write(body);
+        }
         req.end();
     });
 };
@@ -84,6 +106,7 @@ const While = createToken({ name: "While", pattern: /while\b/ });
 const Try = createToken({ name: "Try", pattern: /try\b/ });
 const Catch = createToken({ name: "Catch", pattern: /catch\b/ });
 const Mut = createToken({ name: "Mut", pattern: /mut\b/ });
+const Await = createToken({ name: "Await", pattern: /await\b/ });
 
 const True = createToken({ name: "True", pattern: /true\b/ });
 const False = createToken({ name: "False", pattern: /false\b/ });
@@ -150,6 +173,7 @@ const allTokens = [
   Try,
   Catch,
   Mut,
+  Await,
 
   True,
   False,
@@ -226,8 +250,7 @@ class FazerParser extends EmbeddedActionsParser {
             if (t1 === Mut) return true;
             const t2 = $.LA(2).tokenType;
             return t1 === Identifier && (t2 === Assign || t2 === SingleEq);
-          },
-          ALT: () => $.SUBRULE($.assignStmt)
+      },          ALT: () => $.SUBRULE($.assignStmt)
         },
         { ALT: () => $.SUBRULE($.caseBlock) },
         { ALT: () => $.SUBRULE($.exprStmt) },
@@ -291,12 +314,12 @@ class FazerParser extends EmbeddedActionsParser {
     });
 
     $.RULE("whileStmt", () => {
-      console.log("Parsing whileStmt");
+      // console.log("Parsing whileStmt");
       const tok = $.CONSUME(While);
       const expr = $.SUBRULE($.expression);
-      console.log("Parsed expr in while");
+      // console.log("Parsed expr in while");
       $.CONSUME(Arrow);
-      console.log("Consumed Arrow in while");
+      // console.log("Consumed Arrow in while");
       const body = $.SUBRULE($.block);
       return node("while", { expr, body, loc: locOf(tok) });
     });
@@ -511,6 +534,13 @@ class FazerParser extends EmbeddedActionsParser {
 
     $.RULE("unaryExpr", () =>
       $.OR([
+        {
+          ALT: () => {
+            const tok = $.CONSUME(Await);
+            const expr = $.SUBRULE3($.unaryExpr);
+            return node("await", { expr, loc: locOf(tok) });
+          },
+        },
         {
           ALT: () => {
             const tok = $.OR2([
@@ -754,17 +784,88 @@ class Scope {
   }
 }
 
+class Channel {
+    constructor(capacity = 0) {
+        this.capacity = Number(capacity) || 0;
+        this.buffer = [];
+        this.senders = [];
+        this.receivers = [];
+        this.closed = false;
+    }
+    
+    send(value) {
+        if (this.closed) return Promise.reject(new Error("Send on closed channel"));
+        return new Promise((resolve, reject) => {
+            if (this.receivers.length > 0) {
+                const receiver = this.receivers.shift();
+                receiver.resolve(value);
+                resolve();
+                return;
+            }
+            if (this.buffer.length < this.capacity) {
+                this.buffer.push(value);
+                resolve();
+                return;
+            }
+            this.senders.push({ value, resolve, reject });
+        });
+    }
+    
+    recv() {
+        if (this.closed && this.buffer.length === 0) return Promise.resolve(null);
+        return new Promise((resolve, reject) => {
+             if (this.buffer.length > 0) {
+                 const val = this.buffer.shift();
+                 if (this.senders.length > 0) {
+                     const sender = this.senders.shift();
+                     this.buffer.push(sender.value);
+                     sender.resolve();
+                 }
+                 resolve(val);
+                 return;
+             }
+             if (this.senders.length > 0) {
+                 const sender = this.senders.shift();
+                 resolve(sender.value);
+                 sender.resolve();
+                 return;
+             }
+             if (this.closed) {
+                 resolve(null);
+                 return;
+             }
+             this.receivers.push({ resolve, reject });
+        });
+    }
+    
+    close() {
+        if (this.closed) return;
+        this.closed = true;
+        while(this.receivers.length > 0) this.receivers.shift().resolve(null);
+        while(this.senders.length > 0) this.senders.shift().reject(new Error("Channel closed"));
+    }
+}
+
 class FazerRuntime {
-  constructor({ argv = process.argv.slice(2), filename = "<stdin>", code = "" } = {}) {
+  constructor({ argv = process.argv.slice(2), filename = "<stdin>", code = "", permissions = null } = {}) {
     this.filename = filename;
     this.code = code;
     this.global = new Scope(null);
     this.fns = new Map(); // name -> {params, body, closure}
     this.native_ui_state = { widgets: [], updates: {} };
+    // Profiling State (v3.8)
+    this.profiling = false;
+    this.profileData = new Map();
+    this.traceMode = false;
+    // Permissions (v3.9)
+    this.permissions = permissions || new Set(["fs", "net", "exec", "osint"]); 
     this._installStdlib(argv);
   }
 
   _installStdlib(argv) {
+    const checkPerm = (perm) => {
+        if (this.permissions && !this.permissions.has(perm)) throw new Error(`Permission denied: '${perm}' is required.`);
+    };
     const { execFileSync } = require("child_process");
     let WebSocket = null;
     try { WebSocket = require("ws"); } catch (e) {}
@@ -4963,8 +5064,72 @@ const ASCII_FONTS = {
       // FAZER SECURITY & INNOVATION SUITE (v3.0)
       // ──────────────────────────────────────────────────────────────────────────
 
+      // Sandbox / Permissions (v3.9)
+      sandbox: {
+          drop: (perm) => {
+              if (!this.permissions.has(perm)) return false;
+              this.permissions.delete(perm);
+              return true;
+          },
+          has: (perm) => this.permissions.has(perm),
+          list: () => Array.from(this.permissions)
+      },
+
       // Math & String Utils
       Math: Math,
+      JSON: JSON,
+      
+      // Logging Module
+      log: {
+          info: (msg, data) => console.log(`\x1b[36m[INFO]\x1b[0m ${msg}`, data ? JSON.stringify(data) : ""),
+          warn: (msg, data) => console.warn(`\x1b[33m[WARN]\x1b[0m ${msg}`, data ? JSON.stringify(data) : ""),
+          error: (msg, data) => console.error(`\x1b[31m[ERROR]\x1b[0m ${msg}`, data ? JSON.stringify(data) : ""),
+          debug: (msg, data) => { if (process.env.DEBUG) console.log(`\x1b[90m[DEBUG]\x1b[0m ${msg}`, data ? JSON.stringify(data) : ""); }
+      },
+
+      // Test Runner Helper
+      test: {
+          assert: (cond, msg) => { if (!cond) throw new FazerError("Assertion Failed: " + (msg || "")); },
+          equal: (a, b, msg) => { if (a != b) throw new FazerError(`Assertion Failed: ${a} != ${b} ${msg||""}`); },
+          run: async (name, fn) => {
+              try {
+                  if (fn && fn.__fnref__) await this._call(fn, [], this.global);
+                  console.log(`\x1b[32mPASS:\x1b[0m ${name}`);
+                  return true;
+              } catch(e) {
+                  console.error(`\x1b[31mFAIL:\x1b[0m ${name} - ${e.message}`);
+                  return false;
+              }
+          }
+      },
+
+      // Concurrency (v3.7)
+      chan: (capacity) => new Channel(Number(capacity) || 0),
+      spawn: (fn) => {
+          checkPerm('exec');
+          this._call(fn, [], this.global).catch(e => console.error(`[Spawn Error] ${e.message}`));
+          return true;
+      },
+      send: async (ch, val) => {
+          if (!(ch instanceof Channel)) throw new Error("send() expects a channel");
+          await ch.send(val);
+          return true;
+      },
+      recv: async (ch) => {
+          if (!(ch instanceof Channel)) throw new Error("recv() expects a channel");
+          return await ch.recv();
+      },
+      close: (obj) => {
+          if (obj instanceof Channel) {
+              obj.close();
+              return true;
+          }
+          if (obj && typeof obj.close === 'function') {
+              obj.close();
+              return true;
+          }
+          return false;
+      },
       
       // Physics Helpers
       phys: {
@@ -5671,6 +5836,7 @@ const ASCII_FONTS = {
       sys: {
           // Spawn Process (Async)
           spawn: async (cmd, args, opts) => {
+             checkPerm('exec');
              const cp = require("child_process");
              const options = { shell: true, env: { ...process.env } };
              
@@ -5707,11 +5873,13 @@ const ASCII_FONTS = {
 
           // Kill Process
           kill: (pid) => {
+              checkPerm('exec');
               try { process.kill(Number(pid)); return true; } catch(e) { return false; }
           },
 
           // Write to Process Stdin
           write_stdin: (pid, data) => {
+              checkPerm('exec');
               const child = this.children.get(Number(pid));
               if (child) {
                   child.stdin.write(String(data));
@@ -5721,7 +5889,16 @@ const ASCII_FONTS = {
           },
 
           // PowerShell Bridge (The Core)
+          exec: (cmd) => {
+             checkPerm('exec');
+             try {
+                 require("child_process").execSync(String(cmd), { stdio: 'inherit' });
+                 return true;
+             } catch(e) { return false; }
+          },
+          style: (text, color) => style(text, color),
           ps: (script) => {
+              checkPerm('exec');
               try {
                   const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ${String(script).replace(/"/g, '\"')} }"`;
                   return require("child_process").execSync(cmd, { encoding: 'utf8', maxBuffer: 1024*1024*50 }).trim();
@@ -5729,6 +5906,7 @@ const ASCII_FONTS = {
           },
           
           ps_json: (script) => {
+             checkPerm('exec');
              try {
                  const s = String(script).replace(/"/g, '\"');
                  const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "& { ${s} } | ConvertTo-Json -Depth 2 -Compress"`;
@@ -5739,14 +5917,39 @@ const ASCII_FONTS = {
 
           // DLL / Assembly Loading & Execution
           dll_load: (path) => {
+              checkPerm('exec');
               // Loads a DLL into the current PS session context (simulated via static calls for now)
               // Since each sys.ps call is a new process, we need a way to persist or use a single session.
               // For now, we provide a helper to generate the loading script snippet.
               return `[System.Reflection.Assembly]::LoadFrom("${String(path).replace(/\\/g, '\\\\')}");`;
           },
           
+          // Plugin System (Load external JS extensions)
+          load_plugin: (path) => {
+              checkPerm('exec');
+              try {
+                  const pAbs = require('path').resolve(String(path));
+                  const mod = require(pAbs);
+                  if (typeof mod === 'function') {
+                      mod(this, builtins, this.global);
+                  } else if (mod.default && typeof mod.default === 'function') {
+                      mod.default(this, builtins, this.global);
+                  }
+                  
+                  // Re-expose builtins to global scope
+                  for (const [k, v] of Object.entries(builtins)) {
+                      if (!this.global.hasHere(k)) {
+                          this.global.set(k, v, false);
+                      }
+                  }
+                  
+                  return true;
+              } catch(e) { throw new FazerError("Plugin Error: " + e.message); }
+          },
+          
           // Native Memory Forensic (Read Process Memory)
           mem_dump: (pid, outputFile) => {
+              checkPerm('exec');
               // Uses MiniDumpWriteDump via P/Invoke in PowerShell
               const ps = `
 $code = @"
@@ -5821,10 +6024,98 @@ Add-Type -TypeDefinition $code -Language CCSharp
           }
       },
 
+      // [CLIPBOARD]
+      clipboard: {
+          get: () => {
+              checkPerm('sys');
+              const p = process.platform;
+              try {
+                  const cp = require('child_process');
+                  if (p === 'win32') return cp.execSync('powershell -command "Get-Clipboard"').toString().trim();
+                  if (p === 'darwin') return cp.execSync('pbpaste').toString().trim();
+                  if (p === 'linux') return cp.execSync('xclip -selection clipboard -o').toString().trim();
+              } catch(e) { return ""; }
+              return "";
+          },
+          set: (text) => {
+              checkPerm('sys');
+              const p = process.platform;
+              const s = String(text).replace(/"/g, '\\"');
+              try {
+                  const cp = require('child_process');
+                  if (p === 'win32') cp.execSync(`powershell -command "Set-Clipboard -Value \\"${s}\\""`);
+                  else if (p === 'darwin') {
+                      const proc = cp.spawn('pbcopy');
+                      proc.stdin.write(text); proc.stdin.end();
+                  }
+                  else if (p === 'linux') {
+                      const proc = cp.spawn('xclip', ['-selection', 'clipboard', '-i']);
+                      proc.stdin.write(text); proc.stdin.end();
+                  }
+                  return true;
+              } catch(e) { return false; }
+          }
+      },
+
+      // [NOTIFY] System Notifications
+      notify: (title, msg) => {
+          checkPerm('sys');
+          const p = process.platform;
+          const t = String(title).replace(/"/g, '\\"');
+          const m = String(msg).replace(/"/g, '\\"');
+          try {
+              if (p === 'win32') {
+                  const script = `
+                  [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+                  $objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon 
+                  $objNotifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($currentProcess.MainModule.FileName) 
+                  $objNotifyIcon.BalloonTipIcon = "Info" 
+                  $objNotifyIcon.BalloonTipText = "${m}" 
+                  $objNotifyIcon.BalloonTipTitle = "${t}" 
+                  $objNotifyIcon.Visible = $True 
+                  $objNotifyIcon.ShowBalloonTip(10000)
+                  `;
+                  require('child_process').execSync(`powershell -c "${script.replace(/\n/g, ' ')}"`);
+              } else if (p === 'darwin') {
+                  require('child_process').execSync(`osascript -e 'display notification "${m}" with title "${t}"'`);
+              } else if (p === 'linux') {
+                  require('child_process').execSync(`notify-send "${t}" "${m}"`);
+              }
+              return true;
+          } catch(e) { return false; }
+      },
+
+      // [WINDOW] Simple Native Dialogs
+      window: {
+          alert: (msg) => {
+              checkPerm('sys');
+              const m = String(msg).replace(/"/g, '\\"');
+              try {
+                  if (process.platform === 'win32') {
+                      require('child_process').execSync(`powershell -c "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('${m}')"`);
+                  } else {
+                      console.log("ALERT:", msg);
+                  }
+              } catch(e) {}
+          },
+          input: (prompt) => {
+              checkPerm('sys');
+              try {
+                   if (process.platform === 'win32') {
+                       const p = String(prompt).replace(/"/g, '\\"');
+                       const cmd = `powershell -c "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::InputBox('${p}', 'Input', '')"`;
+                       return require('child_process').execSync(cmd).toString().trim();
+                   }
+                   return "";
+              } catch(e) { return ""; }
+          }
+      },
+
       // [NET] Advanced Network Operations
       net: {
           // HTTP Server (Simple)
           server: async (port, handler) => {
+              checkPerm('net');
               const http = require('http');
               return new Promise(resolve => {
                   const srv = http.createServer(async (req, res) => {
@@ -5838,6 +6129,11 @@ Add-Type -TypeDefinition $code -Language CCSharp
                       req.on('data', chunk => body += chunk);
                       req.on('end', async () => {
                           r.body = body;
+                          // Auto-parse JSON
+                          if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
+                              try { r.body = JSON.parse(body); } catch(e) {}
+                          }
+
                           try {
                               let result = { status: 404, body: "Not Found" };
                               
@@ -5886,6 +6182,8 @@ Add-Type -TypeDefinition $code -Language CCSharp
           },
           
           download: async (url, path) => {
+              checkPerm('net');
+              checkPerm('fs');
               const fs = require('fs');
               const https = require('https');
               return new Promise(resolve => {
@@ -5903,6 +6201,7 @@ Add-Type -TypeDefinition $code -Language CCSharp
 
           // Socket Connect / Port Scan
           connect: async (host, port, timeout=2000) => {
+             checkPerm('net');
              return new Promise(resolve => {
                  const socket = new (require("net").Socket)();
                  socket.setTimeout(Number(timeout));
@@ -5915,6 +6214,7 @@ Add-Type -TypeDefinition $code -Language CCSharp
 
           // TCP Client
           tcp_client: async (host, port, onData) => {
+              checkPerm('net');
               const net = require('net');
               const client = new net.Socket();
               const id = "tcp_" + Date.now() + "_" + Math.random();
@@ -5947,6 +6247,7 @@ Add-Type -TypeDefinition $code -Language CCSharp
           
           // UDP Client/Server (Simple)
           udp_socket: async (port, onMsg) => {
+              checkPerm('net');
               const dgram = require('dgram');
               const server = dgram.createSocket('udp4');
               
@@ -5988,8 +6289,46 @@ Add-Type -TypeDefinition $code -Language CCSharp
               });
           },
 
+          // WebSocket Client
+          websocket: (url) => {
+              checkPerm('net');
+              let WS;
+              try { WS = require('ws'); } catch(e) { WS = global.WebSocket; }
+              if (!WS) throw new FazerError("WebSocket requires 'ws' npm package");
+              
+              return new Promise(resolve => {
+                  try {
+                      const ws = new WS(String(url));
+                      const api = {
+                          send: (msg) => ws.send(String(msg)),
+                          close: () => ws.close(),
+                          on: (ev, fn) => {
+                              // Bridge events
+                              if (ws.on) { // 'ws' package
+                                  ws.on(ev, async (data) => {
+                                      if (fn && fn.__fnref__) await this._call(fn, [data ? String(data) : null], this.global);
+                                  });
+                              } else { // Native WebSocket
+                                  ws['on' + ev] = async (e) => {
+                                      const d = e.data || e;
+                                      if (fn && fn.__fnref__) await this._call(fn, [d ? String(d) : null], this.global);
+                                  };
+                              }
+                          }
+                      };
+                      
+                      if (ws.on) ws.on('open', () => resolve(api));
+                      else ws.onopen = () => resolve(api);
+                      
+                      if (ws.on) ws.on('error', () => resolve(null));
+                      else ws.onerror = () => resolve(null);
+                  } catch(e) { resolve(null); }
+              });
+          },
+
           // Get Public IP (External)
           public_ip: async () => {
+              checkPerm('net');
               try {
                   const res = await builtins.fetch("https://api.ipify.org");
                   return res.body;
@@ -5998,18 +6337,20 @@ Add-Type -TypeDefinition $code -Language CCSharp
           
           // DNS Lookup
           dns: async (domain) => {
+             checkPerm('net');
              const dns = require("dns").promises;
              try { return await dns.resolve(String(domain)); } catch(e) { return []; }
           },
           
           // Network Interfaces
-          interfaces: () => require("os").networkInterfaces()
+          interfaces: () => { checkPerm('net'); return require("os").networkInterfaces(); }
       },
 
       // [OSINT] Open Source Intelligence Tools
       osint: {
           // Whois Query
           whois: async (domain) => {
+              checkPerm('osint');
               return new Promise(resolve => {
                   const client = require("net").createConnection(43, "whois.iana.org", () => {
                       client.write(domain + "\r\n");
@@ -6037,22 +6378,86 @@ Add-Type -TypeDefinition $code -Language CCSharp
           }
       },
 
+      // [TUI] Terminal User Interface (ANSI)
+      tui: {
+          clear: () => {
+              process.stdout.write('\x1b[2J\x1b[H');
+          },
+          pos: (x, y) => {
+              process.stdout.write(`\x1b[${Number(y)};${Number(x)}H`);
+          },
+          color: (fg, bg) => {
+              // Simple 16-color support
+              // fg: 30-37 (black, red, green, yellow, blue, magenta, cyan, white)
+              // bg: 40-47
+              let c = "";
+              if (fg) c += `\x1b[${fg}m`;
+              if (bg) c += `\x1b[${bg}m`;
+              process.stdout.write(c);
+          },
+          reset: () => {
+              process.stdout.write('\x1b[0m');
+          },
+          box: (x, y, w, h, title) => {
+             const xn = Number(x);
+             const yn = Number(y);
+             const wn = Number(w);
+             const hn = Number(h);
+             
+             // Top
+             process.stdout.write(`\x1b[${yn};${xn}H┌${"─".repeat(wn-2)}┐`);
+             
+             // Title
+             if (title) {
+                 const t = String(title).substring(0, wn-4);
+                 process.stdout.write(`\x1b[${yn};${xn+2}H ${t} `);
+             }
+             
+             // Sides
+             for(let i=1; i<hn-1; i++) {
+                 process.stdout.write(`\x1b[${yn+i};${xn}H│${" ".repeat(wn-2)}│`);
+             }
+             
+             // Bottom
+             process.stdout.write(`\x1b[${yn+hn-1};${xn}H└${"─".repeat(wn-2)}┘`);
+          },
+          progress: (x, y, w, percent) => {
+             const xn = Number(x);
+             const yn = Number(y);
+             const wn = Number(w);
+             const p = Math.max(0, Math.min(100, Number(percent)));
+             const filled = Math.floor((wn-2) * (p/100));
+             
+             process.stdout.write(`\x1b[${yn};${xn}H[${"=".repeat(filled)}${" ".repeat(wn-2-filled)}] ${Math.floor(p)}%`);
+          }
+      },
+
 
 
 
 
 
       fs: {
-          read: (path) => { try { return require('fs').readFileSync(String(path), 'utf8'); } catch(e) { return null; } },
-          write: (path, data) => { try { require('fs').writeFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
-          append: (path, data) => { try { require('fs').appendFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
-          exists: (path) => require('fs').existsSync(String(path)),
-          mkdir: (path) => { try { require('fs').mkdirSync(String(path), {recursive:true}); return true; } catch(e) { return false; } },
+          read: (path) => { checkPerm('fs'); try { return require('fs').readFileSync(String(path), 'utf8'); } catch(e) { return null; } },
+          write: (path, data) => { checkPerm('fs'); try { require('fs').writeFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
+          append: (path, data) => { checkPerm('fs'); try { require('fs').appendFileSync(String(path), String(data)); return true; } catch(e) { return false; } },
+          exists: (path) => { checkPerm('fs'); return require('fs').existsSync(String(path)); },
+          mkdir: (path) => { checkPerm('fs'); try { require('fs').mkdirSync(String(path), {recursive:true}); return true; } catch(e) { return false; } },
           
           // Enhanced FS
-          list: (path) => { try { return require('fs').readdirSync(String(path)); } catch(e) { return []; } },
+          read_bytes: (path) => { checkPerm('fs'); try { return require('fs').readFileSync(String(path)); } catch(e) { return null; } },
+          write_bytes: (path, data) => { 
+              checkPerm('fs'); 
+              try { 
+                  if (Array.isArray(data)) data = Buffer.from(data);
+                  require('fs').writeFileSync(String(path), data); 
+                  return true; 
+              } catch(e) { return false; } 
+          },
+          list: (path) => { checkPerm('fs'); try { return require('fs').readdirSync(String(path)); } catch(e) { return []; } },
           
           list_recursive: (dir) => {
+              checkPerm('fs');
               const fs = require('fs');
               const path = require('path');
               let results = [];
@@ -6071,11 +6476,12 @@ Add-Type -TypeDefinition $code -Language CCSharp
               return results;
           },
           
-          copy: (src, dest) => { try { require('fs').copyFileSync(String(src), String(dest)); return true; } catch(e) { return false; } },
-          move: (src, dest) => { try { require('fs').renameSync(String(src), String(dest)); return true; } catch(e) { return false; } },
-          delete: (path) => { try { require('fs').rmSync(String(path), {recursive:true, force:true}); return true; } catch(e) { return false; } },
+          copy: (src, dest) => { checkPerm('fs'); try { require('fs').copyFileSync(String(src), String(dest)); return true; } catch(e) { return false; } },
+          move: (src, dest) => { checkPerm('fs'); try { require('fs').renameSync(String(src), String(dest)); return true; } catch(e) { return false; } },
+          delete: (path) => { checkPerm('fs'); try { require('fs').rmSync(String(path), {recursive:true, force:true}); return true; } catch(e) { return false; } },
           
           stats: (path) => {
+              checkPerm('fs');
               try {
                   const s = require('fs').statSync(String(path));
                   return { size: s.size, is_dir: s.isDirectory(), mtime: s.mtimeMs, ctime: s.ctimeMs };
@@ -6179,6 +6585,131 @@ Add-Type -TypeDefinition $code -Language CCSharp
                   return true;
               }
               return false;
+          },
+
+          // Cron-like Scheduler
+          cron: (expr, fn) => {
+              // Simple cron parser (5 fields: min hour dom mon dow)
+              // Support * and specific numbers for now
+              const id = "c_" + Date.now() + "_" + Math.random();
+              
+              const parseField = (f, min, max) => {
+                  if (f === '*') return true;
+                  const v = Number(f);
+                  return !isNaN(v) && v >= min && v <= max ? v : null;
+              };
+
+              const check = () => {
+                  const now = new Date();
+                  const [min, hour, dom, mon, dow] = expr.split(' ');
+                  
+                  const m = parseField(min, 0, 59);
+                  const h = parseField(hour, 0, 23);
+                  const d = parseField(dom, 1, 31);
+                  const mo = parseField(mon, 1, 12);
+                  const dw = parseField(dow, 0, 6);
+
+                  if ((m === true || m === now.getMinutes()) &&
+                      (h === true || h === now.getHours()) &&
+                      (d === true || d === now.getDate()) &&
+                      (mo === true || mo === now.getMonth() + 1) &&
+                      (dw === true || dw === now.getDay())) {
+                          this._call(fn, [], this.global).catch(e => console.error("Cron Error:", e));
+                  }
+              };
+
+              // Check every minute
+              const timer = setInterval(check, 60000);
+              // Run check immediately if we just started (optional, but skipping to avoid double run)
+              
+              builtins.sched._tasks[id] = timer;
+              return id;
+          }
+      },
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // [CSV] CSV Parser & Generator
+      // ──────────────────────────────────────────────────────────────────────────
+      csv: {
+          parse: (text, delimiter = ",") => {
+              const str = String(text);
+              const del = String(delimiter);
+              const rows = [];
+              let row = [];
+              let col = "";
+              let inQuote = false;
+              
+              for (let i = 0; i < str.length; i++) {
+                  const c = str[i];
+                  const next = str[i+1];
+                  
+                  if (inQuote) {
+                      if (c === '"') {
+                          if (next === '"') { col += '"'; i++; }
+                          else { inQuote = false; }
+                      } else {
+                          col += c;
+                      }
+                  } else {
+                      if (c === '"') { inQuote = true; }
+                      else if (c === del) { row.push(col); col = ""; }
+                      else if (c === '\r') { /* ignore */ }
+                      else if (c === '\n') { row.push(col); rows.push(row); row = []; col = ""; }
+                      else { col += c; }
+                  }
+              }
+              if (row.length > 0 || col.length > 0) { row.push(col); rows.push(row); }
+              return rows;
+          },
+          
+          stringify: (rows, delimiter = ",") => {
+              if (!Array.isArray(rows)) return "";
+              const esc = (v) => {
+                  const s = String(v ?? "");
+                  if (s.includes(delimiter) || s.includes('"') || s.includes('\n')) {
+                      return '"' + s.replace(/"/g, '""') + '"';
+                  }
+                  return s;
+              };
+              return rows.map(r => r.map(esc).join(delimiter)).join("\n");
+          }
+      },
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // [COMPRESSION] Zlib Wrapper
+      // ──────────────────────────────────────────────────────────────────────────
+      compression: {
+          gzip: (data) => {
+              try { return require('zlib').gzipSync(Buffer.from(String(data))).toString('base64'); } catch(e) { return null; }
+          },
+          gunzip: (b64) => {
+              try { return require('zlib').gunzipSync(Buffer.from(String(b64), 'base64')).toString(); } catch(e) { return null; }
+          },
+          deflate: (data) => {
+              try { return require('zlib').deflateSync(Buffer.from(String(data))).toString('base64'); } catch(e) { return null; }
+          },
+          inflate: (b64) => {
+              try { return require('zlib').inflateSync(Buffer.from(String(b64), 'base64')).toString(); } catch(e) { return null; }
+          }
+      },
+
+      // WebAssembly Support
+      wasm: {
+          load: async (p, imports={}) => {
+              checkPerm('fs');
+              try {
+                  const buf = fs.readFileSync(path.resolve(String(p)));
+                  const mod = await WebAssembly.instantiate(buf, imports);
+                  return {
+                      instance: mod.instance,
+                      module: mod.module,
+                      exports: mod.instance.exports
+                  };
+              } catch(e) { throw new FazerError("WASM Load Error: " + e.message); }
+          },
+          validate: (bytes) => {
+              if (Array.isArray(bytes)) bytes = Buffer.from(bytes);
+              return WebAssembly.validate(bytes);
           }
       },
 
@@ -6342,7 +6873,11 @@ ascii_art: (text, fontName) => {
           return output;
       },
 
-      println: (x = "") => (console.log(String(x)), null),
+      println: (x = "") => {
+          if (typeof x === 'object' && x !== null) console.log(JSON.stringify(x, null, 2));
+          else console.log(String(x));
+          return null;
+      },
       print: (x = "") => (process.stdout.write(String(x)), null),
       ask: async (prompt = "") => {
         process.stdout.write(String(prompt));
@@ -6405,18 +6940,19 @@ ascii_art: (text, fontName) => {
       style: (s, color) => style(s, String(color || "reset")),
       box: (title, ...lines) => box(title, lines),
 
-      readText,
-      writeText,
-      saveText: (s, p) => { fs.writeFileSync(path.resolve(String(p)), String(s), "utf8"); return null; },
-      exists: (p) => fs.existsSync(path.resolve(String(p))),
+      readText: (p) => { checkPerm('fs'); return readText(p); },
+      writeText: (p, s) => { checkPerm('fs'); return writeText(p, s); },
+      saveText: (s, p) => { checkPerm('fs'); fs.writeFileSync(path.resolve(String(p)), String(s), "utf8"); return null; },
+      exists: (p) => { checkPerm('fs'); return fs.existsSync(path.resolve(String(p))); },
       
       // Core Utils (Standard Library)
-      fs_read: (p) => { try { return fs.readFileSync(path.resolve(String(p)), "utf8"); } catch(e) { return null; } },
-      fs_write: (p, c) => { try { fs.writeFileSync(path.resolve(String(p)), String(c)); return true; } catch(e) { return false; } },
-      fs_exists: (p) => fs.existsSync(path.resolve(String(p))),
+      fs_read: (p) => { checkPerm('fs'); try { return fs.readFileSync(path.resolve(String(p)), "utf8"); } catch(e) { return null; } },
+      fs_write: (p, c) => { checkPerm('fs'); try { fs.writeFileSync(path.resolve(String(p)), String(c)); return true; } catch(e) { return false; } },
+      fs_exists: (p) => { checkPerm('fs'); return fs.existsSync(path.resolve(String(p))); },
       
           // Module System
       import: async (p) => {
+          checkPerm('fs');
           const pAbs = path.resolve(String(p));
           if (!fs.existsSync(pAbs)) return null;
           const code = fs.readFileSync(pAbs, "utf8");
@@ -6458,11 +6994,12 @@ ascii_art: (text, fontName) => {
       },
       
       // Persistence (Simple JSON DB)
-      db_load: (p) => { try { return JSON.parse(fs.readFileSync(path.resolve(String(p)), "utf8")); } catch(e) { return {}; } },
-      db_save: (p, data) => { try { fs.writeFileSync(path.resolve(String(p)), JSON.stringify(data, null, 2)); return true; } catch(e) { return false; } },
+      db_load: (p) => { checkPerm('fs'); try { return JSON.parse(fs.readFileSync(path.resolve(String(p)), "utf8")); } catch(e) { return {}; } },
+      db_save: (p, data) => { checkPerm('fs'); try { fs.writeFileSync(path.resolve(String(p)), JSON.stringify(data, null, 2)); return true; } catch(e) { return false; } },
       
       // System Automation
       clipboard_set: (text) => {
+          checkPerm('exec');
           if (process.platform === "win32") {
               try {
                   const script = `Set-Clipboard -Value '${String(text).replace(/'/g, "''")}'`;
@@ -6474,12 +7011,14 @@ ascii_art: (text, fontName) => {
           return false;
       },
       clipboard_get: () => {
+          checkPerm('exec');
           if (process.platform === "win32") {
               try { return child_process.execSync(`powershell -command "Get-Clipboard"`).toString().trim(); } catch(e) { return ""; }
           }
           return "";
       },
       notify: (title, msg) => {
+          checkPerm('exec');
           if (process.platform === "win32") {
               const cmd = `
               [reflection.assembly]::loadwithpartialname("System.Windows.Forms");
@@ -6879,11 +7418,37 @@ $results | ConvertTo-Json -Compress
 
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Number(ms))),
       
+      // Async/Promises
+      promise_new: (executor) => {
+        return new Promise((resolve, reject) => {
+          try {
+            if (executor && executor.__fnref__) {
+              // Provide JS resolve/reject functions to Fazer
+              this._call(executor, [
+                (v) => resolve(v),
+                (e) => reject(e)
+              ], this.global).catch(reject);
+            } else {
+              resolve(null);
+            }
+          } catch(e) { reject(e); }
+        });
+      },
+      promise_resolve: (value) => Promise.resolve(value),
+      promise_reject: (reason) => Promise.reject(reason),
+      promise_defer: () => {
+        let resolve, reject;
+        const p = new Promise((res, rej) => { resolve = res; reject = rej; });
+        return { promise: p, resolve, reject };
+      },
+      
       fetch: async (url, opts = {}) => {
+        checkPerm('net');
         return await fetchWithRedirects(String(url), opts || {});
       },
 
       discord: (token) => {
+        checkPerm('net');
         if (!WebSocket) throw new FazerError("WebSocket module (ws) not found. Install it to use discord.");
         const listeners = {};
         const ws = new WebSocket("wss://gateway.discord.gg/?v=10&encoding=json");
@@ -6945,6 +7510,17 @@ $results | ConvertTo-Json -Compress
                  const n = Number(ans);
                  if (isNaN(n) || n < 1 || n > options.length) resolve(null);
                  else resolve(options[n-1]);
+             });
+         });
+      },
+
+      read_line: async (prompt) => {
+         const readline = require("readline");
+         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+         return new Promise(resolve => {
+             rl.question(String(prompt || ""), (ans) => {
+                 rl.close();
+                 resolve(ans);
              });
          });
       },
@@ -8006,7 +8582,210 @@ $results | ConvertTo-Json -Compress
           b64_dec: (s) => Buffer.from(String(s), 'base64').toString('utf8'),
           hex_enc: (s) => Buffer.from(String(s)).toString('hex'),
           hex_dec: (s) => Buffer.from(String(s), 'hex').toString('utf8'),
-          random: (size) => require('crypto').randomBytes(Number(size)).toString('hex')
+          random: (size) => require('crypto').randomBytes(Number(size)).toString('hex'),
+
+          // RSA
+          rsa_keypair: () => {
+              const { publicKey, privateKey } = require('crypto').generateKeyPairSync('rsa', {
+                modulusLength: 2048,
+                publicKeyEncoding: { type: 'spki', format: 'pem' },
+                privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+              });
+              return { public: publicKey, private: privateKey };
+          },
+          rsa_encrypt: (pubKey, data) => {
+             try { return require('crypto').publicEncrypt(String(pubKey), Buffer.from(String(data))).toString('base64'); } catch(e) { return null; }
+          },
+          rsa_decrypt: (privKey, data) => {
+             try { return require('crypto').privateDecrypt(String(privKey), Buffer.from(String(data), 'base64')).toString(); } catch(e) { return null; }
+          },
+          sign: (privKey, data) => {
+             try { 
+                 const sign = require('crypto').createSign('SHA256');
+                 sign.update(String(data));
+                 return sign.sign(String(privKey), 'base64');
+             } catch(e) { return null; }
+          },
+          verify: (pubKey, data, sig) => {
+             try {
+                 const verify = require('crypto').createVerify('SHA256');
+                 verify.update(String(data));
+                 return verify.verify(String(pubKey), String(sig), 'base64');
+             } catch(e) { return false; }
+          }
+      },
+
+      security: {
+          shred: (path, passes) => {
+              const fs = require('fs');
+              const p = String(path);
+              if (!fs.existsSync(p)) return false;
+              const n = Number(passes) || 3;
+              try {
+                  const stats = fs.statSync(p);
+                  const size = stats.size;
+                  const crypto = require('crypto');
+                  for (let i = 0; i < n; i++) {
+                      const buf = crypto.randomBytes(size);
+                      fs.writeFileSync(p, buf);
+                  }
+                  fs.unlinkSync(p);
+                  return true;
+              } catch(e) { return false; }
+          },
+          lock_folder: (path) => {
+              try {
+                  require('child_process').execSync(`attrib +h +s +r "${String(path)}"`);
+                  return true;
+              } catch(e) { return false; }
+          },
+          unlock_folder: (path) => {
+              try {
+                  require('child_process').execSync(`attrib -h -s -r "${String(path)}"`);
+                  return true;
+              } catch(e) { return false; }
+          },
+          encrypt_file: (path, key) => {
+              try {
+                  const fs = require('fs');
+                  const crypto = require('crypto');
+                  const p = String(path);
+                  const data = fs.readFileSync(p);
+                  const k = crypto.scryptSync(String(key), 'salt', 32);
+                  const iv = crypto.randomBytes(16);
+                  const cipher = crypto.createCipheriv('aes-256-cbc', k, iv);
+                  let encrypted = cipher.update(data);
+                  encrypted = Buffer.concat([encrypted, cipher.final()]);
+                  fs.writeFileSync(p + ".enc", iv.toString('hex') + ':' + encrypted.toString('hex'));
+                  fs.unlinkSync(p);
+                  return true;
+              } catch(e) { return false; }
+          },
+          decrypt_file: (path, key) => {
+              try {
+                  const fs = require('fs');
+                  const crypto = require('crypto');
+                  const p = String(path);
+                  const content = fs.readFileSync(p, 'utf8');
+                  const parts = content.split(':');
+                  const iv = Buffer.from(parts.shift(), 'hex');
+                  const encrypted = Buffer.from(parts.join(':'), 'hex');
+                  const k = crypto.scryptSync(String(key), 'salt', 32);
+                  const decipher = crypto.createDecipheriv('aes-256-cbc', k, iv);
+                  let decrypted = decipher.update(encrypted);
+                  decrypted = Buffer.concat([decrypted, decipher.final()]);
+                  fs.writeFileSync(p.replace('.enc', ''), decrypted);
+                  return true;
+              } catch(e) { return false; }
+          },
+          monitor: (path, callback) => {
+              const fs = require('fs');
+              const p = String(path);
+              if (!fs.existsSync(p)) throw new Error("Path not found");
+              try {
+                  fs.watch(p, { recursive: true }, async (eventType, filename) => {
+                      if (callback && callback.__fnref__) {
+                          const evt = { type: eventType, file: filename || "unknown" };
+                          await this._call(callback, [evt], this.global);
+                      }
+                  });
+                  return true;
+              } catch(e) { return false; }
+          },
+          steg_hide: (img_path, file_path, out_path) => {
+              try {
+                  const fs = require('fs');
+                  const img = fs.readFileSync(String(img_path));
+                  const file = fs.readFileSync(String(file_path));
+                  const delimiter = Buffer.from("FAZER_STEG_DATA_START::");
+                  const final = Buffer.concat([img, delimiter, file]);
+                  fs.writeFileSync(String(out_path), final);
+                  return true;
+              } catch(e) { return false; }
+          },
+          steg_reveal: (img_path, out_path) => {
+              try {
+                  const fs = require('fs');
+                  const data = fs.readFileSync(String(img_path));
+                  const delimiter = Buffer.from("FAZER_STEG_DATA_START::");
+                  const idx = data.indexOf(delimiter);
+                  if (idx === -1) return false;
+                  const fileData = data.subarray(idx + delimiter.length);
+                  fs.writeFileSync(String(out_path), fileData);
+                  return true;
+              } catch(e) { return false; }
+          },
+          firewall_block: (target) => {
+             if (process.platform !== 'win32') return false;
+             try {
+                 const t = String(target);
+                 const isPort = /^\d+$/.test(t);
+                 const ruleName = "FazerBlock_" + t;
+                 let cmd = "";
+                 if (isPort) {
+                     cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=block protocol=TCP localport=${t}`;
+                 } else {
+                     cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=block remoteip=${t}`;
+                 }
+                 require('child_process').execSync(cmd);
+                 return true;
+             } catch(e) { return false; }
+          }
+      },
+
+      // ──────────────────────────────────────────────────────────────────────────
+      // [KEYSTORE] Encrypted Secret Store
+      // ──────────────────────────────────────────────────────────────────────────
+      keystore: {
+          _path: null,
+          _key: null,
+          _data: {},
+          
+          open: (path, masterKey) => {
+              builtins.keystore._path = String(path);
+              builtins.keystore._key = String(masterKey);
+              try {
+                  const fs = require('fs');
+                  if (fs.existsSync(builtins.keystore._path)) {
+                      const enc = fs.readFileSync(builtins.keystore._path, 'utf8');
+                      // Decrypt
+                      const decrypted = builtins.crypto.aes_decrypt(builtins.keystore._key, enc);
+                      if (!decrypted) return false;
+                      builtins.keystore._data = JSON.parse(decrypted);
+                  } else {
+                      builtins.keystore._data = {};
+                  }
+                  return true;
+              } catch(e) { return false; }
+          },
+          
+          save: () => {
+               if (!builtins.keystore._path || !builtins.keystore._key) return false;
+               try {
+                   const json = JSON.stringify(builtins.keystore._data);
+                   const enc = builtins.crypto.aes_encrypt(builtins.keystore._key, json);
+                   require('fs').writeFileSync(builtins.keystore._path, enc);
+                   return true;
+               } catch(e) { return false; }
+          },
+          
+          set: (k, v) => { builtins.keystore._data[String(k)] = String(v); },
+          get: (k) => builtins.keystore._data[String(k)]
+      },
+
+      // SQLite Module
+      sqlite: {
+          open: (path) => {
+              checkPerm('fs');
+              let DB;
+              try { DB = require('better-sqlite3'); } catch(e) { throw new FazerError("SQLite requires 'better-sqlite3' package"); }
+              const db = new DB(String(path));
+              return {
+                  query: (sql, params=[]) => db.prepare(String(sql)).all(params),
+                  exec: (sql, params=[]) => db.prepare(String(sql)).run(params),
+                  close: () => db.close()
+              };
+          }
       },
       
       http: {
@@ -8347,6 +9126,105 @@ $results | ConvertTo-Json -Compress
           }
       },
 
+      security: {
+          shred: (path, passes) => {
+              try {
+                  const fs = require('fs');
+                  const p = require('path').resolve(String(path));
+                  if (!fs.existsSync(p)) return false;
+                  const stats = fs.statSync(p);
+                  const len = stats.size;
+                  const passCount = Number(passes) || 3;
+                  for(let i=0; i<passCount; i++) {
+                      const buf = require('crypto').randomBytes(len);
+                      fs.writeFileSync(p, buf);
+                  }
+                  const zeros = Buffer.alloc(len, 0);
+                  fs.writeFileSync(p, zeros);
+                  fs.unlinkSync(p);
+                  return true;
+              } catch(e) { return false; }
+          },
+          encrypt_file: (path, key) => {
+             try {
+                 const fs = require('fs');
+                 const crypto = require('crypto');
+                 const p = require('path').resolve(String(path));
+                 const data = fs.readFileSync(p);
+                 const k = crypto.scryptSync(String(key), 'salt', 32);
+                 const iv = crypto.randomBytes(16);
+                 const cipher = crypto.createCipheriv('aes-256-cbc', k, iv);
+                 let encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+                 const outData = Buffer.concat([iv, encrypted]);
+                 fs.writeFileSync(p + ".enc", outData);
+                 return true;
+             } catch(e) { return false; }
+          },
+          decrypt_file: (path, key) => {
+             try {
+                 const fs = require('fs');
+                 const crypto = require('crypto');
+                 const p = require('path').resolve(String(path));
+                 const data = fs.readFileSync(p);
+                 const iv = data.slice(0, 16);
+                 const content = data.slice(16);
+                 const k = crypto.scryptSync(String(key), 'salt', 32);
+                 const decipher = crypto.createDecipheriv('aes-256-cbc', k, iv);
+                 let decrypted = Buffer.concat([decipher.update(content), decipher.final()]);
+                 const outPath = p.endsWith(".enc") ? p.slice(0, -4) : p + ".dec";
+                 fs.writeFileSync(outPath, decrypted);
+                 return true;
+             } catch(e) { return false; }
+          },
+          hash_file: (path) => {
+              try {
+                  const fs = require('fs');
+                  const crypto = require('crypto');
+                  const buf = fs.readFileSync(String(path));
+                  return crypto.createHash('sha256').update(buf).digest('hex');
+              } catch(e) { return null; }
+          },
+          lock_folder: (path) => {
+              if (process.platform !== 'win32') return false;
+              try {
+                  const p = require('path').resolve(String(path));
+                  require('child_process').execSync(`attrib +h +s +r "${p}"`);
+                  return true;
+              } catch(e) { return false; }
+          },
+          unlock_folder: (path) => {
+              if (process.platform !== 'win32') return false;
+              try {
+                  const p = require('path').resolve(String(path));
+                  require('child_process').execSync(`attrib -h -s -r "${p}"`);
+                  return true;
+              } catch(e) { return false; }
+          },
+          monitor: (path, callback) => {
+             try {
+                 const fs = require('fs');
+                 const p = require('path').resolve(String(path));
+                 fs.watch(p, async (eventType, filename) => {
+                     if (callback && callback.__fnref__) {
+                         await this._call(callback, [eventType, filename], this.global);
+                     }
+                 });
+                 return true;
+             } catch(e) { return false; }
+          }
+      },
+
+      profile: {
+          start: () => { this.profiling = true; this.profileData.clear(); return true; },
+          stop: () => { this.profiling = false; return true; },
+          report: () => {
+              const out = {};
+              for (const [k, v] of this.profileData) out[k] = v;
+              return out;
+          },
+          trace: (enable) => { this.traceMode = !!enable; return true; }
+      },
+
       self: {
           destruct: () => {
               if (process.platform !== 'win32') return false;
@@ -8379,6 +9257,11 @@ $results | ConvertTo-Json -Compress
     }
     this.debugStep = false;
     this.children = new Map();
+
+    // PROFILER & TRACE STATE
+    this.profiling = false;
+    this.profileData = new Map();
+    this.traceMode = false;
   }
 
   async _debugCheck(expr, scope) {
@@ -8548,6 +9431,13 @@ $results | ConvertTo-Json -Compress
     await this._debugCheck(expr, scope);
 
     switch (expr.type) {
+      case "await": {
+        const v = await this._eval(expr.expr, scope);
+        if (v && typeof v === "object" && typeof v.then === "function") {
+          return await v;
+        }
+        return v;
+      }
       case "num":
       case "str":
       case "bool":
@@ -8687,7 +9577,30 @@ $results | ConvertTo-Json -Compress
   }
 
   async _call(callee, args, scope) {
-    if (typeof callee === "function") return await callee(...args);
+    if (typeof callee === "function") {
+        // Native Profiling & Trace
+        const name = callee.name || "native";
+        if (this.traceMode) {
+             console.log(`[TRACE] Native: ${name}(${args.map(a => {
+                 try { return JSON.stringify(a); } catch(e) { return String(a); }
+             }).join(', ')})`);
+        }
+
+        let start = 0;
+        if (this.profiling) start = Date.now();
+
+        const res = await callee(...args);
+
+        if (this.profiling) {
+            const elapsed = Date.now() - start;
+            const key = `[native] ${name}`;
+            const stat = this.profileData.get(key) || { count: 0, time: 0 };
+            stat.count++;
+            stat.time += elapsed;
+            this.profileData.set(key, stat);
+        }
+        return res;
+    }
 
     // Support calling by string name (e.g. from callbacks stored as strings)
     if (typeof callee === "string") {
@@ -8704,14 +9617,35 @@ $results | ConvertTo-Json -Compress
 
     if (callee && typeof callee === "object" && callee.__fnref__) {
       const name = callee.__fnref__;
+
+      if (this.traceMode) {
+          console.log(`[TRACE] Call: ${name}(${args.map(a => {
+              try { return JSON.stringify(a); } catch(e) { return String(a); }
+          }).join(', ')})`);
+      }
+
       const fn = this.fns.get(name);
       if (!fn) throw new FazerError(`Unknown function '${name}'`);
       if (args.length !== fn.params.length) {
         throw new FazerError(`Arity mismatch: ${name} expects ${fn.params.length}, got ${args.length}`);
       }
+
+      // Profiling Hook
+      let start = 0;
+      if (this.profiling) start = Date.now();
+
       const inner = new Scope(fn.closure);
       for (let i = 0; i < fn.params.length; i++) inner.set(fn.params[i], args[i], true);
       const out = await this._execBlock(fn.body, inner);
+
+      if (this.profiling) {
+          const elapsed = Date.now() - start;
+          const stat = this.profileData.get(name) || { count: 0, time: 0 };
+          stat.count++;
+          stat.time += elapsed;
+          this.profileData.set(name, stat);
+      }
+
       if (out instanceof ReturnSignal) return out.value;
       return out;
     }
@@ -8827,7 +9761,7 @@ function prettyError(err, filename, code) {
 /* REPL                                                                         */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-async function repl() {
+async function repl(permissions = null) {
   const readline = require("readline");
   const rl = readline.createInterface({
     input: process.stdin,
@@ -8845,7 +9779,7 @@ async function repl() {
   console.log(`Type "help", "copyright" or "license" for more information.`);
   console.log(`Type "load('file.fz')" to execute a script.`);
 
-  const rt = new FazerRuntime({ filename: "<repl>", args: [] });
+  const rt = new FazerRuntime({ filename: "<repl>", args: [], permissions });
 
   // Add a helper to run files
   rt.global.set("load", (p) => {
@@ -8961,10 +9895,28 @@ SOFTWARE.
 }
 
 async function main() {
-  const argv = process.argv.slice(2);
+  let argv = process.argv.slice(2);
+
+  // Permission Sandbox Configuration (v3.9)
+  const permissions = new Set(["fs", "net", "exec", "osint"]);
+  const newArgv = [];
+  
+  for (let i = 0; i < argv.length; i++) {
+      const arg = argv[i];
+      if (arg === "--deny-all") {
+          permissions.clear();
+      } else if (arg.startsWith("--deny-")) {
+          permissions.delete(arg.substring(7));
+      } else if (arg.startsWith("--allow-")) {
+          permissions.add(arg.substring(8));
+      } else {
+          newArgv.push(arg);
+      }
+  }
+  argv = newArgv;
 
   if (argv.length === 0) {
-    await repl();
+    await repl(permissions);
     return;
   }
 
@@ -9430,36 +10382,68 @@ async function main() {
     process.exit(1);
   }
 
-  const code = fs.readFileSync(filePath, "utf8");
-  const lex = lexer.tokenize(code);
-  if (lex.errors.length) {
-    console.error("Lexer error:", lex.errors[0].message || String(lex.errors[0]));
-    process.exit(1);
-  }
-
-  const parser = new FazerParser();
-  parser.input = lex.tokens;
-  let ast;
+  let ast = null;
+  let code = "";
+  let useCache = false;
+  const cachePath = filePath + ".cache";
+  
+  // Try loading from cache
   try {
-      ast = parser.program();
-  } catch (e) {
-      if (e.name === "FazerError") {
-          console.error(prettyError(e, filePath, code));
-          process.exit(1);
+      if (fs.existsSync(cachePath)) {
+          const srcStat = fs.statSync(filePath);
+          const cacheStat = fs.statSync(cachePath);
+          if (cacheStat.mtimeMs > srcStat.mtimeMs) {
+              const cachedData = JSON.parse(fs.readFileSync(cachePath, "utf8"));
+              // Check version compatibility to avoid AST structure mismatches
+              if (cachedData.version === require("./package.json").version) {
+                  ast = cachedData.ast;
+                  code = fs.readFileSync(filePath, "utf8"); 
+                  useCache = true;
+              }
+          }
       }
-      throw e;
+  } catch(e) {}
+
+  if (!useCache) {
+      code = fs.readFileSync(filePath, "utf8");
+      const lex = lexer.tokenize(code);
+      if (lex.errors.length) {
+        console.error("Lexer error:", lex.errors[0].message || String(lex.errors[0]));
+        process.exit(1);
+      }
+
+      const parser = new FazerParser();
+      parser.input = lex.tokens;
+      
+      try {
+          ast = parser.program();
+      } catch (e) {
+          if (e.name === "FazerError") {
+              console.error(prettyError(e, filePath, code));
+              process.exit(1);
+          }
+          throw e;
+      }
+
+      if (parser.errors.length) {
+        const e = parser.errors[0];
+        const tok = e.token || (lex.tokens.length ? lex.tokens[0] : null);
+        const meta = tok ? locOf(tok) : null;
+        const ferr = new FazerError(e.message, meta || {});
+        console.error(prettyError(ferr, filePath, code));
+        process.exit(1);
+      }
+      
+      // Save AST to cache
+      try {
+          fs.writeFileSync(cachePath, JSON.stringify({
+              version: require("./package.json").version,
+              ast: ast
+          }), "utf8");
+      } catch(e) {}
   }
 
-  if (parser.errors.length) {
-    const e = parser.errors[0];
-    const tok = e.token || (lex.tokens.length ? lex.tokens[0] : null);
-    const meta = tok ? locOf(tok) : null;
-    const ferr = new FazerError(e.message, meta || {});
-    console.error(prettyError(ferr, filePath, code));
-    process.exit(1);
-  }
-
-  const rt = new FazerRuntime({ argv: forwarded, filename: filePath, code });
+  const rt = new FazerRuntime({ argv: forwarded, filename: filePath, code, permissions });
   try {
     await rt.run(ast);
   } catch (err) {

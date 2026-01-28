@@ -1,0 +1,31 @@
+fn main() ->
+  println("--- Sandbox Test ---")
+  
+  println("[1] FS Test")
+  try ->
+    # Just check existence of current file or something safe
+    ex := fs.exists("package.json")
+    println("FS Exists Result: " + ex)
+  end catch e ->
+    println("FS Error: " + e)
+  end
+
+  println("[2] Net Test")
+  try ->
+    # Just dns lookup, less intrusive
+    ip := await net.dns("google.com")
+    println("Net DNS Result: " + ip)
+  end catch e ->
+    println("Net Error: " + e)
+  end
+  
+  println("[3] Exec Test")
+  try ->
+    res := sys.exec("echo hello")
+    println("Exec Result: " + res)
+  end catch e ->
+    println("Exec Error: " + e)
+  end
+end
+
+await main()

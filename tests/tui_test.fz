@@ -1,0 +1,36 @@
+fn main() ->
+  # 1. TUI Test
+  tui.clear()
+  tui.pos(1, 1)
+  println("--- TUI Test ---")
+  
+  tui.box(5, 5, 40, 10, "Fazer Box")
+  tui.pos(7, 7)
+  println("Inside the box!")
+  
+  tui.color(31, 47) # Red fg, White bg
+  tui.pos(7, 8)
+  println("Colored Text")
+  tui.reset()
+  
+  tui.progress(5, 12, 40, 50)
+  tui.pos(1, 15)
+  println("TUI Done (Check visual output)")
+
+  # 2. Clipboard Test
+  println("--- Clipboard Test ---")
+  try ->
+    clipboard.set("Fazer Clipboard Test")
+    val := clipboard.get()
+    println("Clipboard Content: " + val)
+    if (val == "Fazer Clipboard Test") ->
+      println("Clipboard OK")
+    else ->
+      println("Clipboard FAILED (Expected 'Fazer Clipboard Test')")
+    end
+  end catch e ->
+    println("Clipboard Test Skipped/Error: " + e)
+  end
+end
+
+main()

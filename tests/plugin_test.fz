@@ -1,0 +1,17 @@
+fn main() ->
+  println("--- Plugin System Test ---")
+  
+  println("Loading plugin...")
+  sys.load_plugin("tests/test_plugin.js")
+  
+  println("Plugin loaded.")
+  
+  println("Calling plugin function...")
+  msg := test_plugin.hello()
+  println("Result: " + msg)
+  
+  sum := test_plugin.add(10, 20)
+  println("Sum: " + sum)
+end
+
+main()

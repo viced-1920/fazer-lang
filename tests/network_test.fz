@@ -1,0 +1,70 @@
+println("--- Network Test ---")
+
+// 1. Test Fetch (GET)
+println("Testing Fetch GET...")
+try ->
+    mut res := fetch("https://jsonplaceholder.typicode.com/todos/1")
+    if (res.status == 200) -> println("Fetch GET: OK") else -> println("Fetch GET: Returned " + res.status) end
+end catch e ->
+    println("Fetch GET: Failed (Offline?) " + e)
+end
+
+// 2. Test HTTP Server + Auto JSON Parsing
+println("Testing HTTP Server...")
+mut port := 9988
+
+fn handler(req) ->
+    // req.body should be an object if JSON was sent
+    if (req.method == "POST") ->
+        return { 
+            status: 200, 
+            body: { received: req.body, message: "Ack" },
+            headers: { "Content-Type": "application/json" }
+        }
+    end
+    return 404
+end
+
+// Start server in background
+spawn(fn() ->
+    net.server(port, handler)
+end)
+
+sleep(1000) // Wait for server startup
+
+// Client POST
+mut payload := { name: "Fazer", id: 101 }
+try ->
+    mut post_res := fetch("http://localhost:9988/", { 
+        method: "POST", 
+        body: payload,
+        headers: { "Content-Type": "application/json" } 
+    })
+    
+    if (post_res.status == 200) ->
+        println("Server Response: 200 OK")
+        mut parsed := json_parse(post_res.body)
+        if (parsed.received.name == "Fazer") -> println("JSON Body Auto-Parse: OK") else -> println("JSON Body Auto-Parse: FAIL") end
+    else ->
+        println("Server Response: " + post_res.status)
+        println(post_res.body)
+    end
+end catch e ->
+    println("Server Test Error: " + e)
+end
+
+// 3. Test SQLite
+println("Testing SQLite...")
+try ->
+    mut db := sqlite.open("test.db")
+    db.exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)")
+    db.exec("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    mut rows := db.query("SELECT * FROM users")
+    if (rows[0].name == "Alice") -> println("SQLite: OK") else -> println("SQLite: FAIL Data Mismatch") end
+    db.close()
+    security.shred("test.db")
+end catch e ->
+    println("SQLite: Skipped (" + e + ")")
+end
+
+println("Network Test Done")

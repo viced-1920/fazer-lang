@@ -1,0 +1,54 @@
+fn main() ->
+  println("--- Testing Extended Builtins ---")
+  
+  # 1. Test CSV
+  println("Testing CSV...")
+  data := [
+      ["Name", "Age", "City"],
+      ["Alice", "25", "Paris"],
+      ["Bob", "30", "New York"]
+  ]
+  csv_str := csv.stringify(data)
+  println("CSV Output:")
+  println(csv_str)
+  
+  parsed := csv.parse(csv_str)
+  println("CSV Parsed Back:")
+  println(parsed)
+  
+  if (parsed[1][0] == "Alice") ->
+      println("CSV OK")
+  else ->
+      println("CSV FAILED")
+  end
+
+  # 2. Test Compression
+  println("Testing Compression...")
+  original := "Hello Fazer Compression World!"
+  compressed := compression.gzip(original)
+  println("Compressed (Base64): " + compressed)
+  
+  decompressed := compression.gunzip(compressed)
+  println("Decompressed: " + decompressed)
+  
+  if (original == decompressed) ->
+      println("Compression OK")
+  else ->
+      println("Compression FAILED")
+  end
+
+  # 3. Test Scheduler (Cron)
+  println("Testing Cron (Simulated)...")
+  # We can't easily wait for a minute in a test, but we can verify it registers
+  id := sched.cron("* * * * *", fn() -> println("Tick") end)
+  println("Cron ID: " + id)
+  sched.cancel(id)
+  println("Cron Cancelled")
+  
+  # 4. Test HTTP Improvements (JSON body)
+  # We need a server to test against, or just rely on the code change.
+  # I'll verify the code change via inspection, as setting up a test server is complex here.
+  
+end
+
+main()
