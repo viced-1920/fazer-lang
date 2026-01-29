@@ -1,0 +1,187 @@
+# FzEncrypt - Secure FAZER Console
+# Password Protected
+
+term_title("FzEncrypt - FAZER Secure Console")
+
+# 1. Authentication
+fn auth() ->
+    mut attempts := 0
+    mut authenticated := false
+    
+    while attempts < 3 ->
+        term_clear()
+        println(rgb(255, 0, 0, "     ______      ______                            _   "))
+        println(rgb(255, 0, 0, "    |  ____|    |  ____|                          | |  "))
+        println(rgb(255, 0, 0, "    | |__ ____  | |__   _ __   ___ _ __ _   _ _ __| |_ "))
+        println(rgb(255, 0, 0, "    |  __|_  /  |  __| | '_ \\ / __| '__| | | | '_ \\ __|"))
+        println(rgb(255, 0, 0, "    | |   / /   | |____| | | | (__| |  | |_| | |_) | |_ "))
+        println(rgb(255, 0, 0, "    |_|  /___|  |______|_| |_|\\___|_|   \\__, | .__/ \\__|"))
+        println(rgb(255, 0, 0, "                                         __/ | |        "))
+        println(rgb(255, 0, 0, "                                        |___/|_|        "))
+        println("")
+        println("    [ ACCESS CONTROL ]")
+        println("")
+        
+        print("    Password: ")
+        term_hide()
+        pass := input("")
+        term_show()
+        println("")
+        
+        if pass == "viced1920" ->
+            authenticated = true
+            attempts = 100 # Break
+        else ->
+            println(rgb(255, 0, 0, "    [!] ACCESS DENIED"))
+            sleep(1000)
+            attempts = attempts + 1
+        end
+    end
+    
+    if authenticated == false ->
+        exit()
+    end
+end
+
+fn derive_key(passphrase) ->
+    # Generate 512-bit key from passphrase using SHA-256 + Salt
+    # We need 64 bytes (128 hex chars)
+    
+    # Part 1
+    h1 := crypto.hash("sha256", passphrase)
+    
+    # Part 2 (salted)
+    h2 := crypto.hash("sha256", passphrase + "_FzEncrypt_Salt_2026")
+    
+    return h1 + h2
+end
+
+fn menu() ->
+    term_clear()
+    println(rgb(0, 255, 0, "    [ FzEncrypt Secure Console ]"))
+    println(rgb(0, 255, 0, "    ----------------------------"))
+    println("    1. Encrypt Message")
+    println("    2. Decrypt Message")
+    println("    3. Generate Random Key")
+    println("    4. Exit")
+    println("")
+    print("    Select > ")
+    return input("")
+end
+
+fn do_encrypt() ->
+    term_clear()
+    println(rgb(0, 255, 255, "    [ ENCRYPT ]"))
+    println("")
+    
+    print("    Enter Message: ")
+    msg := input("")
+    
+    println("")
+    println("    [ Key Mode ]")
+    println("    1. Enter Passphrase (User Friendly)")
+    println("    2. Enter Raw Hex Key (Advanced)")
+    print("    > ")
+    mode := input("")
+    
+    mut key := ""
+    
+    if mode == "1" ->
+        print("    Passphrase: ")
+        pass := input("")
+        key = derive_key(pass)
+        println("    Derived Key: " + key)
+    else ->
+        print("    Hex Key (128 chars): ")
+        key = input("")
+    end
+    
+    println("")
+    println("    Encrypting...")
+    try ->
+        cipher := crypto.fazer_encrypt(key, msg)
+        println(rgb(0, 255, 0, "    [+] ENCRYPTED OUTPUT:"))
+        println("    " + cipher)
+    end
+    catch e ->
+        println(rgb(255, 0, 0, "    [!] Error: " + e))
+    end
+    
+    println("")
+    println("    Press Enter to continue...")
+    input("")
+end
+
+fn do_decrypt() ->
+    term_clear()
+    println(rgb(0, 255, 255, "    [ DECRYPT ]"))
+    println("")
+    
+    print("    Enter Encrypted Hex: ")
+    cipher := input("")
+    
+    println("")
+    println("    [ Key Mode ]")
+    println("    1. Enter Passphrase")
+    println("    2. Enter Raw Hex Key")
+    print("    > ")
+    mode := input("")
+    
+    mut key := ""
+    
+    if mode == "1" ->
+        print("    Passphrase: ")
+        pass := input("")
+        key = derive_key(pass)
+    else ->
+        print("    Hex Key: ")
+        key = input("")
+    end
+    
+    println("")
+    println("    Decrypting...")
+    try ->
+        plain := crypto.fazer_decrypt(key, cipher)
+        println(rgb(0, 255, 0, "    [+] DECRYPTED MESSAGE:"))
+        println("    " + plain)
+    end
+    catch e ->
+        println(rgb(255, 0, 0, "    [!] Error (Check Key): " + e))
+    end
+    
+    println("")
+    println("    Press Enter to continue...")
+    input("")
+end
+
+fn do_keygen() ->
+    term_clear()
+    println(rgb(0, 255, 255, "    [ KEYGEN ]"))
+    println("")
+    key := crypto.random_bytes(64)
+    println(rgb(0, 255, 0, "    [+] 512-bit Random Key:"))
+    println("    " + key)
+    println("")
+    println("    Press Enter to continue...")
+    input("")
+end
+
+# Main Execution
+auth()
+
+mut running := true
+while running ->
+    choice := menu()
+    if choice == "1" ->
+        do_encrypt()
+    else if choice == "2" ->
+        do_decrypt()
+    else if choice == "3" ->
+        do_keygen()
+    else if choice == "4" ->
+        running = false
+    end
+end
+
+term_clear()
+println("Goodbye.")
