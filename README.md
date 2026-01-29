@@ -4,9 +4,9 @@
 
 Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer combine une syntaxe concise avec une bibliothèque standard "batteries included".
 
-![Version](https://img.shields.io/badge/version-4.0.0-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-4.0.1-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🚀 Nouveautés v4.0.0 (The Empire Update)
+## 🚀 Nouveautés v4.0.1 (The Empire Update)
 - **Binary Structs**: Manipulation binaire bas niveau (pack/unpack) pour protocoles réseau.
 - **Worker Threads**: Vrai parallélisme multi-thread via `worker` module.
 - **HTML/OSINT**: Module `html` pour l'extraction de données (liens, emails).

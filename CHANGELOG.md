@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.0.0] - 2026-01-29
+## [4.0.1] - 2026-01-29
 
 ### Major Features
 - **Binary Struct Module**: Added `struct` module for packing/unpacking binary data (C-style structs), essential for network protocols and file formats.
