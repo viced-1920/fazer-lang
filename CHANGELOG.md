@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.1.1] - 2026-01-29
+## [4.1.2] - 2026-01-29
 
 ### Added
 - **Support Command**: Added `fazer support` CLI command to easily access the donation page.
