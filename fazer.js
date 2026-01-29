@@ -5087,6 +5087,110 @@ const ASCII_FONTS = {
           debug: (msg, data) => { if (process.env.DEBUG) console.log(`\x1b[90m[DEBUG]\x1b[0m ${msg}`, data ? JSON.stringify(data) : ""); }
       },
 
+      // Binary Struct (v4.0)
+      struct: {
+          pack: (fmt, ...values) => {
+              let buf = Buffer.alloc(0);
+              let valIdx = 0;
+              for(let i=0; i<fmt.length; i++) {
+                   const c = fmt[i];
+                   const val = values[valIdx++];
+                   let b;
+                   try {
+                       if (c === 'b') { b = Buffer.alloc(1); b.writeInt8(Number(val)); }
+                       else if (c === 'B') { b = Buffer.alloc(1); b.writeUInt8(Number(val)); }
+                       else if (c === 'h') { b = Buffer.alloc(2); b.writeInt16LE(Number(val)); }
+                       else if (c === 'H') { b = Buffer.alloc(2); b.writeUInt16LE(Number(val)); }
+                       else if (c === 'i') { b = Buffer.alloc(4); b.writeInt32LE(Number(val)); }
+                       else if (c === 'I') { b = Buffer.alloc(4); b.writeUInt32LE(Number(val)); }
+                       else if (c === 'f') { b = Buffer.alloc(4); b.writeFloatLE(Number(val)); }
+                       else if (c === 'd') { b = Buffer.alloc(8); b.writeDoubleLE(Number(val)); }
+                       else if (c === 's') { b = Buffer.from(String(val)); }
+                       else { valIdx--; continue; }
+                       buf = Buffer.concat([buf, b]);
+                   } catch(e) { throw new FazerError(`Struct pack error at '${c}': ${e.message}`); }
+              }
+              return buf;
+          },
+          unpack: (fmt, buf) => {
+               if (!Buffer.isBuffer(buf)) buf = Buffer.from(buf);
+               let off = 0;
+               const res = [];
+               for(const c of fmt) {
+                   try {
+                       if (c === 'b') { res.push(buf.readInt8(off)); off+=1; }
+                       else if (c === 'B') { res.push(buf.readUInt8(off)); off+=1; }
+                       else if (c === 'h') { res.push(buf.readInt16LE(off)); off+=2; }
+                       else if (c === 'H') { res.push(buf.readUInt16LE(off)); off+=2; }
+                       else if (c === 'i') { res.push(buf.readInt32LE(off)); off+=4; }
+                       else if (c === 'I') { res.push(buf.readUInt32LE(off)); off+=4; }
+                       else if (c === 'f') { res.push(buf.readFloatLE(off)); off+=4; }
+                       else if (c === 'd') { res.push(buf.readDoubleLE(off)); off+=8; }
+                       else if (c === 's') { 
+                           let end = buf.indexOf(0, off);
+                           if (end === -1) end = buf.length;
+                           res.push(buf.toString('utf8', off, end));
+                           off = end + 1;
+                       }
+                   } catch(e) { res.push(null); }
+               }
+               return res;
+          }
+      },
+
+      // HTML/OSINT Parser (v4.0)
+      html: {
+          extract_links: (html) => {
+              const regex = /href=["'](.*?)["']/g;
+              const res = [];
+              let m;
+              while ((m = regex.exec(String(html))) !== null) res.push(m[1]);
+              return res;
+          },
+          extract_emails: (html) => {
+               const regex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+               const res = [];
+               let m;
+               while ((m = regex.exec(String(html))) !== null) res.push(m[1]);
+               return res;
+          },
+          strip_tags: (html) => String(html).replace(/<[^>]*>/g, '')
+      },
+
+      // Worker Threads (v4.0)
+      worker: {
+          spawn: (path, data) => {
+              checkPerm('exec');
+              const { Worker } = require('worker_threads');
+              // Point to THIS file (fazer.js)
+              const w = new Worker(__filename, { 
+                  argv: [String(path)], 
+                  workerData: data 
+              });
+              const id = 'w_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+              this.children.set(id, w);
+              return {
+                  id: id,
+                  send: (msg) => w.postMessage(msg),
+                  on: (ev, fn) => {
+                      if (ev === 'message') w.on('message', async (d) => { if(fn && fn.__fnref__) await this._call(fn, [d], this.global); });
+                      if (ev === 'error') w.on('error', async (d) => { if(fn && fn.__fnref__) await this._call(fn, [d], this.global); });
+                      if (ev === 'exit') w.on('exit', async (d) => { if(fn && fn.__fnref__) await this._call(fn, [d], this.global); });
+                  },
+                  terminate: () => w.terminate()
+              };
+          },
+          is_worker: () => {
+               try { return !require('worker_threads').isMainThread; } catch(e) { return false; }
+          },
+          data: () => {
+               try { return require('worker_threads').workerData; } catch(e) { return null; }
+          },
+          post: (msg) => {
+               try { require('worker_threads').parentPort.postMessage(msg); } catch(e) {}
+          }
+      },
+
       // Test Runner Helper
       test: {
           assert: (cond, msg) => { if (!cond) throw new FazerError("Assertion Failed: " + (msg || "")); },

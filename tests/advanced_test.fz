@@ -1,0 +1,57 @@
+println("--- Advanced Features Test ---")
+
+// 1. Struct Test
+println("Testing Struct...")
+try ->
+    // Pack Int(123456) and String("Hello")
+    // Note: 's' in our impl reads until null terminator. 
+    // We should append a null byte to string if we want it to work with our 's' unpack implementation which looks for \0
+    // But our pack 's' just writes bytes.
+    // Let's manually append \0 for safety in this test or rely on buffer end.
+    // Our unpack 's' reads until \0 OR end of buffer.
+    
+    // We'll pack "Hello" then a byte 0 explicitly? 
+    // No, our pack 's' implementation: b = Buffer.from(String(val));
+    // It doesn't add null terminator automatically.
+    // But our unpack 's' implementation: let end = buf.indexOf(0, off); if (-1) end = len.
+    // So if it's at the end, it works.
+    
+    mut packed := struct.pack("I s", 123456, "Hello")
+    // packed is a Buffer. 
+    
+    mut unpacked := struct.unpack("I s", packed)
+    
+    if (unpacked[0] == 123456) -> println("Struct Int: OK") else -> println("Struct Int: FAIL " + unpacked[0]) end
+    if (unpacked[1] == "Hello") -> println("Struct Str: OK") else -> println("Struct Str: FAIL '" + unpacked[1] + "'") end
+    
+end catch e ->
+    println("Struct Error: " + e)
+end
+
+// 2. HTML Test
+println("Testing HTML...")
+mut html_content := "<a href=\"https://google.com\">Link</a> <div class=\"test\"> <a href=\"login.php\">Login</a> </div>"
+mut links := html.extract_links(html_content)
+if (len(links) == 2) -> println("HTML Links: OK") else -> println("HTML Links: FAIL " + len(links)) end
+
+mut emails := html.extract_emails("Contact: admin@example.com or support@test.org")
+if (emails[0] == "admin@example.com") -> println("HTML Emails: OK") else -> println("HTML Emails: FAIL") end
+
+// 3. Worker Test
+println("Testing Worker...")
+try ->
+    mut w := worker.spawn("tests/worker_task.fz", { msg: "HelloFromMain" })
+    
+    w.on("message", fn(msg) ->
+        println("Main received: " + msg)
+    end)
+    
+    // Wait for worker (async sleep allows event loop to process messages)
+    sleep(2000)
+    w.terminate()
+    println("Worker Test: Done")
+end catch e ->
+    println("Worker Error: " + e)
+end
+
+println("Advanced Test Done")

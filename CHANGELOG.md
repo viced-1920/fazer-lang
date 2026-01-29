@@ -2,36 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [4.0.0] - 2026-01-28
+## [4.0.0] - 2026-01-29
 
-### Added (The "Empire" Update)
+### Major Features
+- **Binary Struct Module**: Added `struct` module for packing/unpacking binary data (C-style structs), essential for network protocols and file formats.
+- **Worker Threads**: Added `worker` module for true parallelism using Node.js Worker Threads.
+- **HTML/OSINT Module**: Added `html` module for parsing HTML, extracting links and emails, stripping tags (useful for OSINT tools).
+- **SQLite Integration**: Added `db.sqlite` module for robust SQL database support.
+- **WebSocket Support**: Added `net.websocket` client.
+- **Enhanced Plugin System**: Plugins can now access all builtins and extend the runtime dynamically.
+- **WASM Support**: Native WebAssembly execution via `wasm` module.
 
-- **Core & Runtime**:
-    - **Async/Await**: Native syntax for asynchronous operations (`async fn`, `await`).
-    - **Channels**: Go-style concurrency primitives (`chan`, `send`, `recv`, `close`).
-    - **Profiler**: Performance analysis tools (`profile.start`, `profile.end`).
-    - **Trace Mode**: Function call tracing for debugging (`trace.on`, `trace.off`).
-    - **WASM**: WebAssembly support (`wasm.load`, `wasm.run`).
-    - **Plugin System**: Dynamic loading of `.js` extensions (`load_plugin`).
-    - **Permission Sandbox**: Granular access control CLI flags (`--allow-net`, `--deny-fs`).
+### Improvements
+- **Async/Await**: First-class support for async operations.
+- **Channels**: Go-style concurrency with `Channel` class.
+- **Profiler & Trace**: Built-in CPU/IO profiler and execution tracing.
+- **Permission Sandbox**: Granular permissions (fs, net, exec, osint) with CLI flags (`--allow-net`, etc.).
+- **TUI Enhancements**: Better terminal UI handling.
+- **Cross-Platform Installer**: Added `install_system.ps1` (Windows) and `install_system.sh` (Linux/macOS).
 
-- **Network & Server**:
-    - **HTTP Server**: `net.server(port, handler)` with automatic JSON body parsing.
-    - **WebSocket Client**: `net.websocket(url)` supporting both `ws` package and native implementation.
-    - **Fetch**: Enhanced `fetch()` with JSON object support, auto-headers, and redirect following.
-    - **SQLite**: Native `sqlite` module (via `better-sqlite3`) for robust local databases.
-
-- **Security & Crypto**:
-    - **RSA**: Full RSA support (`rsa_keypair`, `rsa_encrypt`, `rsa_decrypt`, `sign`, `verify`).
-    - **Keystore**: Encrypted secret storage (`keystore.open`, `keystore.save`, `keystore.set/get`).
-    - **Shred**: Secure file deletion (`security.shred`).
-
-- **System & Utils**:
-    - **Integration**: `clipboard` (get/set), `notify` (toast), `window` (dialogs).
-    - **Data Formats**: `csv` (parse/stringify), `compression` (gzip/gunzip).
-    - **Cron**: Task scheduling with `sched.cron(expr, fn)`.
-    - **Logging**: Structured logger (`log.info`, `log.warn`, `log.error`).
-    - **Testing**: Built-in test runner (`test.assert`, `test.run`).
+### Fixes
+- Fixed parser issues with `try-catch` blocks.
+- Fixed `fetchWithRedirects` JSON handling.
+- Improved error reporting for runtime exceptions.
 
 ## [3.5.0] - 2026-01-26
 

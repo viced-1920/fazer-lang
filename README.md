@@ -6,34 +6,16 @@ Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer 
 
 ![Version](https://img.shields.io/badge/version-4.0.0-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## Nouveautés v4.0 (The "Empire" Update)
-
-Cette mise à jour majeure transforme Fazer en un véritable écosystème de développement complet, sécurisé et prêt pour la production.
-
-### 🌐 Réseau & Serveur (`net`, `http`, `sqlite`)
-*   **Serveur HTTP Natif** : Créez des APIs REST en quelques lignes avec support automatique du JSON.
-*   **WebSocket Client** : Connectez-vous aux sockets temps réel (`ws://`, `wss://`).
-*   **Fetch Amélioré** : Requêtes HTTP complètes avec gestion automatique des objets JSON et redirections.
-*   **SQLite Intégré** : Base de données SQL locale rapide et sans configuration (`sqlite.open`).
-
-### ⚡ Performance & Concurrence
-*   **Async/Await** : Support natif pour un code asynchrone propre.
-*   **Channels (Go-style)** : Communication inter-processus sécurisée (`chan`, `send`, `recv`).
-*   **Profiler & Trace** : Analysez les performances (`profile.start/end`) et tracez l'exécution fonction par fonction.
-*   **WASM** : Exécutez du code WebAssembly directement dans Fazer (`wasm.load`).
-
-### 🔒 Sécurité & Cryptographie Avancée
-*   **Sandbox de Permissions** : Contrôle granulaire des accès (`--allow-net`, `--deny-fs`, etc.) au lancement.
-*   **Crypto RSA** : Génération de paires de clés, chiffrement asymétrique et signatures numériques.
-*   **Keystore Chiffré** : Stockage sécurisé de secrets (clés API, tokens) avec chiffrement AES-256.
-*   **Stéganographie & Shred** : Outils offensifs et défensifs intégrés.
-
-### 🛠️ Outils & Système
-*   **Système de Plugins** : Chargez des extensions `.js` dynamiquement.
-*   **Intégration Système** : Presse-papiers (`clipboard`), Notifications (`notify`), Fenêtres natives.
-*   **CSV & Compression** : Parsing CSV robuste et compression GZIP/Deflate native.
-*   **Test Runner** : Framework de test intégré (`test.assert`, `test.run`).
-*   **Logs Structurés** : Logging couleur avec niveaux (`info`, `warn`, `error`).
+## 🚀 Nouveautés v4.0.0 (The Empire Update)
+- **Binary Structs**: Manipulation binaire bas niveau (pack/unpack) pour protocoles réseau.
+- **Worker Threads**: Vrai parallélisme multi-thread via `worker` module.
+- **HTML/OSINT**: Module `html` pour l'extraction de données (liens, emails).
+- **SQLite**: Support natif des bases de données SQL.
+- **WASM & Plugins**: Exécution WebAssembly et extensions JS dynamiques.
+- **Net & Security**: WebSocket client, RSA Crypto, Keystore chiffré.
+- **System**: Clipboard, Notifications, Dialogues natifs.
+- **Concurrency**: Async/Await, Channels, Cron scheduling.
+- **Dev Tools**: Profiler, Trace mode, Permission Sandbox.
 
 ---
 
@@ -53,28 +35,20 @@ Lancer Sentinelle depuis la racine du projet :
 fazer Sentinelle/sentinelle.fz
 ```
 
-## Installation
-
-### Windows
-1.  Téléchargez ou clonez le dépôt.
-2.  Double-cliquez sur `install_system.ps1`.
-3.  Redémarrez votre terminal.
-
-### Linux / Mac
-1.  Téléchargez ou clonez le dépôt.
-2.  Rendez le script d'installation exécutable et lancez-le :
-    ```bash
-    chmod +x install_system.sh
-    ./install_system.sh
-    ```
-3.  Redémarrez votre terminal ou faites `source ~/.bashrc` (ou `.zshrc`).
-
-### Via NPM (Global)
-Installez Fazer globalement via npm :
-
+## 📦 Installation
 ```bash
+# Via npm
 npm install -g fazer-lang
+
+# Build depuis la source
+git clone https://github.com/viced/fazer.git
+cd fazer
+npm install
+npm link
 ```
+### Installation Système (Script)
+- **Windows**: Exécutez `.\install_system.ps1` dans PowerShell.
+- **Linux/Mac**: Exécutez `./install_system.sh`.
 
 ## Utilisation Rapide
 
