@@ -4,11 +4,12 @@
 
 Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer combine une syntaxe concise avec une bibliothèque standard "batteries included".
 
-![Version](https://img.shields.io/badge/version-4.1.0-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-4.1.1-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🚀 Nouveautés v4.1.0 (FAZER Protocol)
+## 🚀 Nouveautés v4.1.1
+- **Support Command**: `fazer support` pour accéder aux dons et soutenir le développement.
+- **Keygen Command**: `fazer keygen` pour générer des clés cryptographiques sécurisées.
 - **FAZER Crypto System**: Algorithme de chiffrement militaire exclusif (FAZER-512) avec blocs de 512 bits et S-Boxes adaptatives.
-- **Keygen CLI**: Commande `fazer keygen` pour générer instantanément des clés cryptographiques sécurisées (256/512 bits).
 - **Binary Structs**: Manipulation binaire bas niveau (pack/unpack) pour protocoles réseau.
 - **Worker Threads**: Vrai parallélisme multi-thread via `worker` module.
 - **HTML/OSINT**: Module `html` pour l'extraction de données (liens, emails).

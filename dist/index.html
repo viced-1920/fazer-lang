@@ -892,6 +892,54 @@ original := crypto.fazer_decrypt(key, cipher)</code></pre>
             </div>
         </section>
 
+        <section id="mod-crypto">
+            <h2>Crypto (FAZER-512)</h2>
+            <p>Native encryption, hashing, and the unique FAZER-512 cipher.</p>
+
+            <div class="api-item">
+                <span class="api-sig">crypto.fazer_encrypt(key, text)</span>
+                <span class="api-desc">Encrypt text using FAZER-512 (Custom Feistel Network). Key must be 64 bytes (512-bit).</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">crypto.fazer_decrypt(key, hex)</span>
+                <span class="api-desc">Decrypt FAZER-512 hex string.</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">crypto.aes_encrypt(key, text)</span>
+                <span class="api-desc">Standard AES-256 encryption.</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">crypto.hash(algo, text)</span>
+                <span class="api-desc">Hash string (algo: 'md5', 'sha1', 'sha256').</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">crypto.random_bytes(n)</span>
+                <span class="api-desc">Generate n cryptographically strong random bytes (hex).</span>
+            </div>
+        </section>
+
+        <section id="cli">
+            <h2>CLI Commands</h2>
+            <p>Built-in tools available via `fazer &lt;cmd&gt;`.</p>
+
+            <div class="api-item">
+                <span class="api-sig">fazer keygen [bits]</span>
+                <span class="api-desc">Generate a secure random hex key. Default 256-bit, use 64 for 512-bit FAZER keys.</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">fazer support</span>
+                <span class="api-desc">Open the donation/support page.</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">fazer geo &lt;ip&gt;</span>
+                <span class="api-desc">IP Geolocation lookup.</span>
+            </div>
+            <div class="api-item">
+                <span class="api-sig">fazer scan &lt;host&gt; &lt;ports&gt;</span>
+                <span class="api-desc">TCP Port scanner.</span>
+            </div>
+        </section>
+
         <section id="examples">
             <h2>Advanced Examples</h2>
 

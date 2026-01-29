@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.1] - 2026-01-29
+
+### Added
+- **Support Command**: Added `fazer support` CLI command to easily access the donation page.
+- **Keygen Command**: Added `fazer keygen [bits]` CLI command for secure hex key generation (supports 512-bit for FAZER crypto).
+- **FAZER-512 Crypto**: Implemented `crypto.fazer_encrypt` and `crypto.fazer_decrypt` (Custom 512-bit Feistel Network Cipher).
+- **Binary Network**: Updated `net` module (TCP/UDP) to support raw binary data transmission (using Buffer instead of String coercion).
+
 ## [4.0.1] - 2026-01-29
 
 ### Major Features

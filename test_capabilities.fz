@@ -1,0 +1,15 @@
+
+try ->
+    buf := Buffer.from("Hello")
+    println("Buffer created: " + buf.toString("hex"))
+    println("Buffer length: " + buf.length)
+end catch e ->
+    println("Buffer not available: " + e)
+end
+
+try ->
+    # Check if net module is available
+    println("Net module: " + net)
+end catch e ->
+    println("Net module error: " + e)
+end

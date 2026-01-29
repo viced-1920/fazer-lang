@@ -6331,15 +6331,15 @@ Add-Type -TypeDefinition $code -Language CCSharp
                   client.connect(Number(port), String(host), () => {
                       const api = {
                           id: id,
-                          write: (data) => client.write(String(data)),
-                          close: () => client.destroy()
-                      };
-                      
-                      client.on('data', async (data) => {
-                           if (onData && onData.__fnref__) {
-                               await this._call(onData, [data.toString(), api], this.global);
-                           }
-                      });
+                          write: (data) => client.write(data),
+                        close: () => client.destroy()
+                    };
+                    
+                    client.on('data', async (data) => {
+                         if (onData && onData.__fnref__) {
+                             await this._call(onData, [data, api], this.global);
+                         }
+                    });
                       
                       client.on('close', () => { /* Connection closed */ });
                       
@@ -6362,18 +6362,18 @@ Add-Type -TypeDefinition $code -Language CCSharp
                   });
 
                   server.on('message', async (msg, rinfo) => {
-                      if (onMsg && onMsg.__fnref__) {
-                          const info = { address: rinfo.address, port: rinfo.port, size: rinfo.size };
-                          await this._call(onMsg, [msg.toString(), info], this.global);
-                      }
-                  });
+                    if (onMsg && onMsg.__fnref__) {
+                        const info = { address: rinfo.address, port: rinfo.port, size: rinfo.size };
+                        await this._call(onMsg, [msg, info], this.global);
+                    }
+                });
 
                   server.on('listening', () => {
                       const address = server.address();
                       const api = {
                           send: (msg, host, port) => {
-                              server.send(String(msg), Number(port), String(host));
-                          },
+                            server.send(msg, Number(port), String(host));
+                        },
                           close: () => server.close()
                       };
                       resolve(api);
@@ -6383,11 +6383,11 @@ Add-Type -TypeDefinition $code -Language CCSharp
                   else {
                        // Just a client, no bind needed (random port)
                        const api = {
-                          send: (msg, host, port) => {
-                              server.send(String(msg), Number(port), String(host));
-                          },
-                          close: () => server.close()
-                      };
+                        send: (msg, host, port) => {
+                            server.send(msg, Number(port), String(host));
+                        },
+                        close: () => server.close()
+                    };
                       resolve(api);
                   }
               });
@@ -10494,6 +10494,13 @@ async function main() {
           const key = require("crypto").randomBytes(len).toString("hex");
           console.log(`${colors.green}[+] Generated ${len * 8}-bit Key:${colors.reset}`);
           console.log(key);
+      },
+
+      "support": async () => {
+          const url = "https://ko-fi.com/fz1000";
+          console.log(`${colors.cyan}Opening support page: ${url}${colors.reset}`);
+          const start = (process.platform == 'darwin'? 'open': process.platform == 'win32'? 'start': 'xdg-open');
+          require('child_process').exec(start + ' ' + url);
       },
       
       // --- SYSTEM / UTILS ---
