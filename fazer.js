@@ -8716,7 +8716,173 @@ $results | ConvertTo-Json -Compress
                  verify.update(String(data));
                  return verify.verify(String(pubKey), String(sig), 'base64');
              } catch(e) { return false; }
-          }
+          },
+
+          // FAZER (Flux Adaptive Zone Encryption Relay) - 512-bit Block Cipher
+          fazer_encrypt: (key, text) => {
+              try {
+                  const crypto = require('crypto');
+                  const masterKey = crypto.createHash('sha512').update(String(key)).digest();
+                  
+                  // Key Schedule (32 Round Keys)
+                  const roundKeys = [];
+                  let temp = masterKey;
+                  for(let i=0; i<32; i++) {
+                      temp = crypto.createHash('sha512').update(temp).update(Buffer.from([i])).digest();
+                      roundKeys.push(temp.slice(0, 32)); // 32 bytes for Half-Block
+                  }
+
+                  // Adaptive S-Box
+                  const sbox = new Uint8Array(256);
+                  for(let i=0; i<256; i++) sbox[i] = i;
+                  let seed = 0;
+                  for(let i=0; i<64; i++) seed += masterKey[i];
+                  for(let i=255; i>0; i--) {
+                      const j = (seed + masterKey[i % 64] + sbox[i]) % (i + 1);
+                      [sbox[i], sbox[j]] = [sbox[j], sbox[i]];
+                  }
+
+                  // Round Function F (Irreversible is fine due to Feistel)
+                  const F = (halfBlock, rKey) => {
+                      const buf = Buffer.from(halfBlock);
+                      // 1. Key Mixing
+                      for(let i=0; i<32; i++) buf[i] ^= rKey[i];
+                      // 2. Substitution
+                      for(let i=0; i<32; i++) buf[i] = sbox[buf[i]];
+                      // 3. Diffusion (Xorshift-like)
+                      for(let i=0; i<32; i++) {
+                          const next = buf[(i+1)%32];
+                          buf[i] ^= (next << 3) ^ (next >>> 2);
+                      }
+                      return buf;
+                  };
+
+                  let data = Buffer.from(String(text));
+                  // Padding (PKCS#7 for 64-byte block)
+                  const padLen = 64 - (data.length % 64);
+                  data = Buffer.concat([data, Buffer.alloc(padLen, padLen)]);
+
+                  const iv = crypto.randomBytes(64);
+                  const output = [iv];
+                  let prevBlock = iv;
+
+                  for(let offset=0; offset<data.length; offset+=64) {
+                      const block = data.slice(offset, offset+64);
+                      // CBC Mode
+                      for(let i=0; i<64; i++) block[i] ^= prevBlock[i];
+
+                      // Feistel Network (16 Rounds)
+                      let L = block.slice(0, 32);
+                      let R = block.slice(32, 64);
+
+                      for(let r=0; r<16; r++) {
+                          const nextR = Buffer.alloc(32);
+                          const fOut = F(R, roundKeys[r]);
+                          for(let i=0; i<32; i++) nextR[i] = L[i] ^ fOut[i];
+                          L = R;
+                          R = nextR;
+                      }
+
+                      // Combine (L, R swapped at end of Feistel usually, let's keep as is)
+                      const encrypted = Buffer.concat([R, L]); // Swap for final output
+                      output.push(encrypted);
+                      prevBlock = encrypted;
+                  }
+
+                  return Buffer.concat(output).toString('hex');
+              } catch(e) { return null; }
+          },
+
+          fazer_decrypt: (key, cipherHex) => {
+              try {
+                  const crypto = require('crypto');
+                  const masterKey = crypto.createHash('sha512').update(String(key)).digest();
+                  
+                  // Key Schedule
+                  const roundKeys = [];
+                  let temp = masterKey;
+                  for(let i=0; i<32; i++) {
+                      temp = crypto.createHash('sha512').update(temp).update(Buffer.from([i])).digest();
+                      roundKeys.push(temp.slice(0, 32));
+                  }
+
+                  // Adaptive S-Box
+                  const sbox = new Uint8Array(256);
+                  for(let i=0; i<256; i++) sbox[i] = i;
+                  let seed = 0;
+                  for(let i=0; i<64; i++) seed += masterKey[i];
+                  for(let i=255; i>0; i--) {
+                      const j = (seed + masterKey[i % 64] + sbox[i]) % (i + 1);
+                      [sbox[i], sbox[j]] = [sbox[j], sbox[i]];
+                  }
+
+                  const F = (halfBlock, rKey) => {
+                      const buf = Buffer.from(halfBlock);
+                      for(let i=0; i<32; i++) buf[i] ^= rKey[i];
+                      for(let i=0; i<32; i++) buf[i] = sbox[buf[i]];
+                      for(let i=0; i<32; i++) {
+                          const next = buf[(i+1)%32];
+                          buf[i] ^= (next << 3) ^ (next >>> 2);
+                      }
+                      return buf;
+                  };
+
+                  const input = Buffer.from(String(cipherHex), 'hex');
+                  const iv = input.slice(0, 64);
+                  const ciphertext = input.slice(64);
+                  const output = [];
+                  let prevBlock = iv;
+
+                  for(let offset=0; offset<ciphertext.length; offset+=64) {
+                      const block = ciphertext.slice(offset, offset+64);
+                      // Save current block for next CBC step
+                      const currentBlockCipher = Buffer.from(block);
+
+                      // Un-Feistel (Reverse Rounds)
+                      // Final output was [R, L], so split accordingly
+                      // Encrypt: L_next = R, R_next = L ^ F(R)
+                      // Output: R_16, L_16
+                      // Decrypt Start: R = Output[0..32], L = Output[32..64]
+                      // (Wait, Encrypt output was Concat(R, L))
+                      
+                      let R = block.slice(0, 32);
+                      let L = block.slice(32, 64);
+
+                      for(let r=15; r>=0; r--) {
+                          // Inverse of: L_new = R_old, R_new = L_old ^ F(R_old)
+                          // We have R (R_new) and L (L_new).
+                          // We want R_old and L_old.
+                          // R_old = L_new (L var)
+                          // L_old = R_new (R var) ^ F(R_old) = R ^ F(L)
+                          
+                          const oldR = L;
+                          const fOut = F(L, roundKeys[r]);
+                          const oldL = Buffer.alloc(32);
+                          
+                          for(let i=0; i<32; i++) oldL[i] = R[i] ^ fOut[i];
+                          
+                          L = oldL;
+                          R = oldR;
+                      }
+
+                      const decrypted = Buffer.concat([L, R]);
+                      
+                      // CBC Inverse
+                      for(let i=0; i<64; i++) decrypted[i] ^= prevBlock[i];
+
+                      output.push(decrypted);
+                      prevBlock = currentBlockCipher;
+                  }
+
+                  let res = Buffer.concat(output);
+                  // Unpad
+                  const padLen = res[res.length - 1];
+                  if (padLen > 0 && padLen <= 64) {
+                      res = res.slice(0, res.length - padLen);
+                  }
+                  return res.toString('utf8');
+              } catch(e) { return null; }
+          },
       },
 
       security: {
@@ -9959,7 +10125,7 @@ CLI Commands:
     ssl, curl, robots
   
   Crypto/Encoding:
-    b64, hex, url, md5, sha1, sha256, uuid
+    b64, hex, url, md5, sha1, sha256, uuid, keygen
     
   System/Utils:
     ls, cat, grep, wc, whoami, env, pass, calc, now, coin, dice
@@ -10321,6 +10487,13 @@ async function main() {
 
       "uuid": async (args) => {
           console.log(require("crypto").randomUUID());
+      },
+
+      "keygen": async (args) => {
+          const len = args[0] ? parseInt(args[0]) : 32;
+          const key = require("crypto").randomBytes(len).toString("hex");
+          console.log(`${colors.green}[+] Generated ${len * 8}-bit Key:${colors.reset}`);
+          console.log(key);
       },
       
       // --- SYSTEM / UTILS ---

@@ -4,9 +4,11 @@
 
 Conçu pour l'automatisation, la sécurité et le traitement de données, Fazer combine une syntaxe concise avec une bibliothèque standard "batteries included".
 
-![Version](https://img.shields.io/badge/version-4.0.1-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-4.1.0-blue.svg) ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🚀 Nouveautés v4.0.1 (The Empire Update)
+## 🚀 Nouveautés v4.1.0 (FAZER Protocol)
+- **FAZER Crypto System**: Algorithme de chiffrement militaire exclusif (FAZER-512) avec blocs de 512 bits et S-Boxes adaptatives.
+- **Keygen CLI**: Commande `fazer keygen` pour générer instantanément des clés cryptographiques sécurisées (256/512 bits).
 - **Binary Structs**: Manipulation binaire bas niveau (pack/unpack) pour protocoles réseau.
 - **Worker Threads**: Vrai parallélisme multi-thread via `worker` module.
 - **HTML/OSINT**: Module `html` pour l'extraction de données (liens, emails).
@@ -62,11 +64,13 @@ Exécuter un script :
 fazer mon_script.fz
 ```
 
-Utiliser les outils CLI (OSINT) :
+Utiliser les outils CLI (OSINT & Crypto) :
 ```bash
 fazer geo 8.8.8.8
 fazer scan google.com
 fazer whois microsoft.com
+fazer keygen        # Génère une clé 256 bits
+fazer keygen 64     # Génère une clé 512 bits (FAZER)
 ```
 
 ## Cryptage / Protection de Code

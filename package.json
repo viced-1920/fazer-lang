@@ -1,7 +1,7 @@
 {
   "name": "fazer-lang",
-  "version": "4.0.1",
-  "description": "Fazer — The Red Team Language. Native modules for C2 Implant, WiFi Recon, Steganography (LSB), Process Injection, Crypto, 3D Game Engine, and Automation. Secure, powerful, standalone.",
+  "version": "4.1.0",
+  "description": "Fazer — The Red Team Language. Native modules for C2 Implant, WiFi Recon, Steganography (LSB), Process Injection, Crypto (FAZER-512), 3D Game Engine, and Automation. Secure, powerful, standalone.",
   "main": "fazer.js",
   "types": "index.d.ts",
   "bin": {
@@ -21,7 +21,9 @@
     "chevrotain": "^11.0.3",
     "ws": "^8.18.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "esbuild": "^0.27.2"
+  },
   "scripts": {
     "start": "node fazer.js",
     "test": "node fazer.js --version",

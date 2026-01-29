@@ -1,0 +1,57 @@
+
+// Test Script for FAZER Encryption System
+
+println("=== Testing FAZER-512 Encryption System ===")
+
+mut key := "SuperSecretKey123!@#"
+mut msg := "Hello, Fazer World! This is a test of the new FAZER-512 encryption system."
+
+println("Original Message: " + msg)
+println("Key: " + key)
+
+// Encrypt
+mut encrypted := crypto.fazer_encrypt(key, msg)
+println("Encrypted (Hex): " + encrypted)
+
+if encrypted == null ->
+    println("Error: Encryption failed (returned null)")
+    exit(1)
+end
+
+// Decrypt
+mut decrypted := crypto.fazer_decrypt(key, encrypted)
+println("Decrypted Message: " + decrypted)
+
+if msg == decrypted ->
+    println("[SUCCESS] Decryption matches original message.")
+else ->
+    println("[FAILURE] Decryption mismatch!")
+    println("Expected: " + msg)
+    println("Got: " + decrypted)
+end
+
+println("\n=== Testing Padding (Short Message) ===")
+msg = "Short"
+encrypted = crypto.fazer_encrypt(key, msg)
+decrypted = crypto.fazer_decrypt(key, encrypted)
+println("Original: " + msg)
+println("Decrypted: " + decrypted)
+
+if msg == decrypted ->
+    println("[SUCCESS] Short message test passed.")
+else ->
+    println("[FAILURE] Short message test failed.")
+end
+
+println("\n=== Testing Padding (Exact Block Size) ===")
+// Block size is 64 chars (bytes). 
+mut block_msg := "1234567890123456789012345678901234567890123456789012345678901234"
+println("Msg Len: " + len(block_msg))
+encrypted = crypto.fazer_encrypt(key, block_msg)
+decrypted = crypto.fazer_decrypt(key, encrypted)
+
+if block_msg == decrypted ->
+    println("[SUCCESS] Exact block size test passed.")
+else ->
+    println("[FAILURE] Exact block size test failed.")
+end
